@@ -1,0 +1,2200 @@
+{% extends "layout.html" %}
+{% block content %}
+
+<script src="https://unpkg.com/wavesurfer.js@7/dist/wavesurfer.min.js"></script>
+
+<div class="content-section">
+    <!-- Error Alert -->
+    {% if error %}
+    <div class="alert alert-danger alert-dismissible fade show mb-4" role="alert">
+        {{ error }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endif %}
+
+    <h2>Voice Verification Test</h2>
+    <p class="instruction-text">This page is dedicated for testing the voice samples.</p>
+
+    <!-- Enrollment Status Section -->
+    <div class="enrollment-status-container">
+        <p class="status-message" id="enrollment-status"
+        data-samples-count="{{ current_user.voice_profile.enrollment_samples_count|default(0) }}"
+        data-is-complete="{{ current_user.voice_profile.is_complete|default(False)|string|lower }}">
+            {% if current_user.voice_profile %}
+                {% if current_user.voice_profile.is_complete %}
+                    <div class="status-panel complete">
+                        <span class="status-icon">✅</span>
+                        <span class="status-title">Done!</span>
+                        <span class="status-text">Your voice profile is complete!</span>
+                        <span class="status-subtext">You can still update your samples if needed.</span>
+                    </div>
+                {% else %}
+                    {% set remaining = 3 - current_user.voice_profile.enrollment_samples_count|default(0) %}
+                    <div class="status-panel in-progress">
+                        <span class="status-icon">ℹ️</span>
+                        <span class="status-title">In Progress:</span>
+                        <span class="status-text">You need <span class="highlight">{{ remaining }} more sample(s)</span> to complete your voice profile.</span>
+                    </div>
+                {% endif %}
+            {% else %}
+                <div class="status-panel new">
+                    <span class="status-icon">🎤</span>
+                    <span class="status-title">Get Started:</span>
+                    <span class="status-text">You need <span class="highlight">3 more samples</span> to complete your voice profile.</span>
+                </div>
+            {% endif %}
+        </p>
+    </div>
+
+    <!-- Results Section -->
+    {% if enrollment_results %}
+    <div class="row">
+        {% for result in enrollment_results %}
+            <div class="col-12 mb-4">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <div class="row">
+                            <!-- Sample Number -->
+                            <div class="col-12 mb-3" >
+                                <div class="d-flex align-items-center">
+                                    <h5 class="mb-0 me-3" id="display-sample-number{{result.id}}">Sample #{{ result.sample_number }}</h5>
+                                    
+                                </div>
+                            </div>
+
+                            <!-- File ID-->
+                            <div class="col-12 mb-3">
+                                <small class="text-muted d-block mb-1">Sample ID</small>
+                                <div class="bg-light p-2 rounded small">
+                                    <code class="text-break" id="display-sample-id{{result.id}}">{{ result.id }}</code>
+                                </div>
+                            </div>
+
+                            <!-- File Type-->
+                            <div class="col-12 mb-3">
+                                <small class="text-muted d-block mb-1">Sample Type</small>
+                                <div class="bg-light p-2 rounded small">
+                                    <code class="text-break" id="display-sample-type{{result.id}}">{{ result.sample_type }}</code>
+                                </div>
+                            </div>
+
+                            <!-- File Path -->
+                            <div class="col-12 mb-3">
+                                <small class="text-muted d-block mb-1">File Path</small>
+                                <div class="bg-light p-2 rounded small">
+                                    <code class="text-break" id="display-sample-file-path{{result.id}}">{{ result.file_path }}</code>
+                                </div>
+                            </div>
+
+                            <!-- Embedding Preview -->
+                            <div class="col-12">
+                                <small class="text-muted d-block mb-1">Embedding Preview</small>
+                                <div class="bg-light p-2 rounded small">
+                                    
+                                    <code class="text-break" id="display-sample-embedding{{result.id}}">{{ result.get_embedding()[:5] }}
+ 
+                                    </code>
+                                </div>
+                            </div>
+
+                            <!-- Score Preview -->
+                            <div class="col-12">
+                                <small class="text-muted d-block mb-1">Score Preview</small>
+                                <div class="bg-light p-2 rounded small">
+                                    <code class="text-break" id="display-sample-score{{result.id}}"></code>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+        <!-- AVG embedding Box -->
+        {% if profile.embedding is not none and profile.get_profile_embedding() is not none %}
+                <div class="col-12 mb-4">
+                    <div class="card shadow-sm">
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-12 mb-3" >
+                                    <div class="d-flex align-items-center">
+                                        <h5 class="mb-0 me-3" id="display-average-title">Average Embedding</h5>
+                                    </div>
+                                </div>
+    
+                                <!-- Embedding Preview -->
+                                <div class="col-12">
+                                    <small class="text-muted d-block mb-1">Embedding Preview</small>
+                                    <div class="bg-light p-2 rounded small">
+                                        
+                                            <code class="text-break" id="display-average-embedding">{{ profile.get_profile_embedding()[:5] }}</code>
+                                        
+                                            
+                                        
+                                    </div>
+                                </div>
+    
+                                <!-- Score Preview -->
+                                <div class="col-12">
+                                    <small class="text-muted d-block mb-1">Score Preview</small>
+                                    <div class="bg-light p-2 rounded small">
+                                        <code class="text-break" id="display-average-score"></code>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                {% endif %}
+    </div>
+
+    {% else %}
+    <!-- Empty State -->
+    <div class="text-center py-5">
+        <div class="mb-4">
+            <i class="bi bi-file-earmark-x text-muted" style="font-size: 3rem;"></i>
+        </div>
+        <h4 class="text-muted">No Samples Available</h4>
+        <p class="text-muted">Start by adding voice samples for enrollment.</p>
+    </div>
+    {% endif %}
+
+    <!--Comparison section -->
+    {% if profile.is_complete %}
+    <div class="verification-section" >
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <div class="current-sample-info" >
+                            <p class="instruction-text">Please select or upload a file to check verification score</p>
+                            
+                            <p class="sample-instruction">Example: Access code "{{access_code}}" requesting entry now</p>
+                            <div class="current-sample-details">
+                                
+                                <div class="row">
+                                    <div class="sample-info">
+                                        <select class="form-select saved-samples-dropdown" id="savedSamplesDropdown">
+                                            <option value="">Select a sample...</option>
+                                            
+                                        </select>
+                                    </div>
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="sample-controls">
+                                        <button type="button" class="btn-play-current" 
+                                                            data-sample-id=""
+                                                            data-filepath="">
+                                            <span class="play-icon">▶</span> Play
+                                        </button>
+                                        <button type="button" 
+                                                class="btn-check" 
+                                                data-sample-id=""
+                                                data-csrf-token="{{ csrf_token() }}">
+                                            <span>🔄</span> Check
+                                        </button>
+                                        <button class="btn-clear-similarity">
+                                            Clear
+                                        </button>
+                                        <button class="btn-delete-sample">
+                                            Delete
+                                        </button>
+                                        <button class="btn-download-sample">
+                                            Download
+                                        </button>
+                                    </div>
+                                </div>
+                            
+                            </div>
+                            
+                                <div class="waveform-container" data-sample-id="">
+                                    <div class="waveform" id="current-sample-id"></div>
+                                    <div class="wave-controls">
+                                        <span class="current-wave-time">00:00 / 00:00</span>
+                                    </div> 
+                                </div>
+                            </div>  
+                        
+        
+                        
+                        <div class="input-options">
+                            <!-- Record option -->
+                            <button type="button" class="option-btn record-option" 
+                                data-target="record">
+                                <span class="btn-icon">🎤</span> Record Directly
+                            </button>
+                            <div id="record" class="option-content record-content hidden">
+                                <div class="action-container">
+                                    <div class="record-controls">
+                                        <button type="button" class="record-btn" data-sample-id="">
+                                            <span class="record-icon">⬤</span>
+                                            Start Recording
+                                        </button>
+                                        <span class="record-time hidden">00:00</span>
+                                    </div>
+                                    <div class="button-group">
+                                        <button type="button" class="clear-btn" data-sample-id="">Clear</button>
+                                        <button type="button" class="save-btn" 
+                                                data-csrf-token="{{ csrf_token() }}"
+                                                data-sample-id="">
+                                            Save
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="audio-player">
+                                    <div class="waveform-container" data-sample-id="">
+                                        <div class="waveform" id="record-sample-id"></div>
+                                        <div class="wave-controls">
+                                            <button type="button" 
+                                                    class="wave-play-btn" 
+                                                    disabled 
+                                                    data-sample-id="">
+                                                <span class="play-icon">▶</span>
+                                            </button>
+                                            <span class="upload-wave-time">00:00 / 00:00</span>
+                                        </div>
+                                        <small class="text-muted">Minimum duration: {{min_record_duration}} seconds</small>
+                                    </div>
+                                </div>
+                            </div>
+
+                            
+        
+                            <!-- Upload option -->
+                            <button type="button" class="option-btn upload-option" 
+                                    data-target="upload">
+                                <span class="btn-icon">📁</span> Upload File
+                            </button>
+                            <div id="upload" class="option-content upload-content hidden" data-sample-id="">
+                                <div class="action-container">
+                                    <div class="file-input">
+                                        <input type="file" name="verify_file" accept="audio/*" class="form-control" data-option="upload">
+                                        <small class="text-muted">Maximum file size: {{max_file_size}}MB</small>
+                                        <br>
+                                        <small class="text-muted">Allowed format: .wav, .mp3</small>
+                                    </div>
+                                    <div class="button-group">
+                                        <button type="button" class="clear-btn" data-sample-id="">Clear</button>
+                                        <button type="button" class="save-btn" data-sample-id="">Save</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {%endif%}
+    </div>
+
+
+
+<style>
+     .row {
+        margin-bottom: 1.5rem;
+        width: 100%;
+    }
+
+    .sample-info {
+        margin-bottom: 1.5rem; 
+        width: 100%;
+    }
+
+    .sample-instruction {
+        color: #666;
+        margin-bottom: 1rem;
+        font-style: italic;
+    }
+
+    .card {
+        border: 1px solid rgba(0,0,0,.125);
+    }
+
+    .bg-light {
+        background-color: #f8f9fa !important;
+    }
+
+    code {
+        color: #666;
+        word-wrap: break-word;
+    }
+
+    .content-section {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    .instruction-text {
+        margin-bottom: 1.5rem;
+        color: #666;
+    }
+
+    .verification-section {
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 1.25rem;
+        background-color: #f9f9f9;
+        margin-bottom: 1.5rem;
+    }
+
+
+
+    .input-options {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .option-btn {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem;
+        border: 2px solid #ddd;
+        border-radius: 6px;
+        background-color: white;
+        cursor: pointer;
+        font-size: 1rem;
+        transition: all 0.2s ease;
+        width: 100%;
+    }
+
+    .option-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .record-option {
+        border-color: #dc3545;
+    }
+
+    .upload-option {
+        border-color: #28a745;
+    }
+
+    .option-content {
+        background-color: white;
+        border-radius: 6px;
+        padding: 0.75rem;
+        margin-top: 0.25rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+    }
+
+    .option-content.hidden {
+        display: none;
+    }
+
+    .action-container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .record-controls {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .record-btn {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        background-color: #dc3545;
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .record-btn:hover {
+        background-color: #c82333;
+    }
+
+    .record-icon {
+        color: white;
+        font-size: 0.8rem;
+    }
+
+    .record-btn.recording .record-icon {
+        animation: blink 1s infinite;
+    }
+
+    .record-icon.recording-active {
+        color: red;
+        animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.5; }
+        100% { opacity: 1; }
+    }
+
+    .hidden {
+        display: none;
+    }
+
+
+    .button-group {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .clear-btn, .upload-btn, .save-btn {
+        padding: 0.5rem 1rem;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .clear-btn {
+        background-color: #6c757d;
+        color: white;
+    }
+
+    .upload-btn, .save-btn {
+        background-color: #28a745;
+        color: white;
+    }
+
+    .clear-btn:hover, .upload-btn:hover, .save-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .record-time {
+        font-family: monospace;
+        font-size: 1rem;
+        min-width: 50px;
+    }
+
+    .file-input {
+        flex-grow: 1;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 0.375rem 0.75rem;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        margin-bottom: 0.25rem;
+    }
+
+    .text-muted {
+        color: #6c757d;
+        font-size: 0.875rem;
+    }
+
+    /* WaveSurfer Specific Styles */
+    .waveform-container {
+        background: white;
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        margin-top: 15px;
+    }
+
+    .waveform {
+        width: 100%;
+        height: 80px;
+        background: #f5f5f5;
+        border-radius: 4px;
+    }
+
+    .wave-controls {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        margin-top: 10px;
+    }
+
+    .wave-play-btn {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        border: none;
+        background: #4F4A85;
+        color: white;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+    }
+
+
+    .wave-play-btn:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+    }
+
+    .wave-play-btn:not(:disabled):hover {
+        background: #383351;
+    }
+
+    .wave-time {
+        font-family: monospace;
+        font-size: 0.9rem;
+        color: #666;
+    }
+
+    .record-btn:disabled,
+    .clear-btn:disabled,
+    .save-btn:disabled,
+    .wave-play-btn:disabled {
+        opacity: 0.5 !important;
+        cursor: not-allowed !important;
+        pointer-events: none !important;
+    }
+
+    /* Add transition for smoother state changes */
+    .record-btn,
+    .clear-btn,
+    .save-btn,
+    .wave-play-btn {
+        transition: opacity 0.2s ease, background-color 0.2s ease;
+    }
+
+    /* Hover states for enabled buttons */
+    .record-btn:not(:disabled):hover,
+    .clear-btn:not(:disabled):hover,
+    .save-btn:not(:disabled):hover {
+        opacity: 0.9;
+    }
+
+
+    .record-btn:not(:disabled),
+    .clear-btn:not(:disabled),
+    .save-btn:not(:disabled),
+    .wave-play-btn:not(:disabled) {
+        pointer-events: auto !important;
+        cursor: pointer !important;
+    }
+
+    .record-btn.recording {
+        background-color: #dc3545 !important;
+        pointer-events: auto !important;
+        cursor: pointer !important;
+    }
+    .wave-play-btn:not(:disabled):hover {
+        background: #383351;
+    }
+
+
+
+
+    .current-sample-info {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        }
+
+    .current-sample-details {
+        display: block; 
+        margin-bottom: 1rem;
+    }
+
+
+    .sample-controls {
+        display: flex;
+        gap: 0.75rem;
+        width: 100%;
+    }
+
+    .btn-play-current,
+    .btn-check,
+    .btn-clear-similarity,
+    .btn-delete-sample,
+    .btn-download-sample {
+        padding: 0.5rem 1rem;
+        border-radius: 0.375rem;
+        font-weight: 500;
+        transition: all 0.2s ease-in-out;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        border: 1px solid transparent;
+        flex:1;
+        transition: all 0.2s ease-in-out;
+
+    }
+
+    .btn-play-current {
+        background-color: #4F4A85;
+        color: white;
+    }
+
+    .btn-play-current:hover {
+        background-color: #403d6b;
+    }
+
+    .btn-play-current.playing {
+        background-color: #383351; 
+    }
+
+    .btn-check {
+        background-color: #0b6dc2;
+        color: white;
+    }
+    .btn-check:hover {
+        background-color: #4B5563;
+    }
+
+    .btn-clear-similarity {
+        background-color: #F3F4F6;
+        color: #374151;
+        border-color: #E5E7EB;
+    }
+    .btn-clear-similarity:hover {
+        background-color: #E5E7EB;
+    }
+
+    .btn-delete-sample {
+        background-color: #FEE2E2;
+        color: #DC2626;
+        border-color: #FECACA;
+    }
+    .btn-delete-sample:hover {
+        background-color: #FEE2E2;
+        border-color: #DC2626;
+    }
+
+    .btn-download-sample {
+        background-color: #afd4ba;
+        color: #095625;
+        border-color: #DCFCE7;
+    }
+    .btn-download-sample:hover {
+        background-color: #DCFCE7;
+        border-color: #16A34A;
+    }
+
+    .btn-play-current:disabled,
+    .btn-check:disabled,
+    .btn-clear-similarity:disabled,
+    .btn-delete-sample:disabled,
+    .btn-download-sample:disabled {
+        opacity: 0.5;
+        cursor: not-allowed !important;
+        pointer-events: none;
+        transform: none !important;
+        box-shadow: none !important;
+    }
+
+
+
+    .play-icon {
+        font-size: 14px;
+        line-height: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        height: 100%;
+    }
+
+    .saved-samples-dropdown {
+        width: 100%;
+        max-width: 100%;
+        padding: 0.75rem;
+        border: 1px solid #d1d5db;
+        border-radius: 0.375rem;
+        background-color: white;
+        font-size: 1rem;
+        color: #1f2937;
+        cursor: pointer;
+    }
+
+    .saved-samples-dropdown:focus {
+        outline: none;
+        border-color: #2563eb;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+
+    .saved-samples-dropdown option {
+        padding: 0.5rem;
+    }
+
+    .saved-samples-dropdown.disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+    
+    .score-display {
+        font-weight: bold;
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.25rem;
+        display: inline-block;
+        min-width: 80px;
+        text-align: center;
+    }
+
+    .score-high {
+        background-color: #dcfce7;
+        color: #166534;
+    }
+
+
+
+    .score-low {
+        background-color: #fee2e2;
+        color: #991b1b;
+    }
+
+    /* Dropdown disabled state */
+    #savedSamplesDropdown:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+        background-color: #f5f5f5;
+    }
+
+    /* Status Panel */
+    .enrollment-status-container {
+        margin-bottom: 1.5rem;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    }
+
+    .status-panel {
+        padding: 1rem 1.25rem;
+        border-radius: 0.5rem;
+        margin: 0.5rem 0;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        transition: all 0.2s ease;
+    }
+
+    .status-panel:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+    }
+
+    .status-panel.complete {
+        background-color: #f0fdf4;
+        border-left: 4px solid #22c55e;
+        color: #15803d;
+    }
+
+    .status-panel.in-progress {
+        background-color: #eff6ff;
+        border-left: 4px solid #3b82f6;
+        color: #1d4ed8;
+    }
+
+    .status-panel.new {
+        background-color: #fefce8;
+        border-left: 4px solid #eab308;
+        color: #854d0e;
+    }
+
+    .status-message {
+        font-weight: 600;
+        font-size: 1.125rem;
+        margin-top: 0.5rem;
+    }
+
+    .status-icon {
+        font-size: 1.25rem;
+        margin-right: 0.5rem;
+        vertical-align: middle;
+    }
+
+    .status-title {
+        font-weight: 700;
+        margin-right: 0.5rem;
+    }
+
+    .status-text {
+        display: inline-block;
+        vertical-align: middle;
+    }
+
+    .status-subtext {
+        display: block;
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+        opacity: 0.9;
+    }
+
+
+    /* Responsive Design */
+    @media (max-width: 768px) {
+        .content-section {
+            padding: 15px;
+        }
+
+        .action-container {
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .button-group {
+            width: 100%;
+            justify-content: flex-end;
+        }
+    }
+
+
+</style>
+
+<script>
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const VoiceEnrollment = {
+        // State Management
+        state: {
+            mediaRecorder: null,
+            audioChunks: [],
+            timer: null,
+            recordingDuration: 0,
+            current_wavesurfer: null,
+            record_wavesurfer: null,
+            upload_wavesurfer: null,
+            completedSamples: new Set(),
+            activePlayback: null,
+            savedSamples: [],
+            selectedSample: null,
+            uploadedFile: null
+        },
+
+            // Utility functions
+            utils: {
+                formatTime(seconds) {
+                    if (!seconds || isNaN(seconds)) return "00:00";
+                    
+                    // Round to nearest second instead of floor
+                    seconds = Math.round(seconds);
+                    
+                    const minutes = Math.floor(seconds / 60);
+                    const remainingSeconds = seconds % 60;
+                    
+                    return `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
+                },
+
+                updateTime(wavesurfer, display) {
+                    if (!wavesurfer || !display) return;
+                    try {
+                        const current = wavesurfer.getCurrentTime();
+                        const duration = wavesurfer.getDuration();
+                        display.textContent = `${this.formatTime(current)} / ${this.formatTime(duration)}`;
+                    } catch (error) {
+                        console.error('Error updating time display:', error);
+                        display.textContent = '00:00 / 00:00';
+                    }
+                },
+
+                
+                async createAudioBlob(chunks) {
+                    if (!chunks || chunks.length === 0) {
+                        throw new Error('No audio data available');
+                    }
+
+                    try {
+                        // Create an audio context
+                        const audioContext = new (window.AudioContext || window.webkitAudioContext)({
+                            sampleRate: 16000  // Force 16kHz sample rate
+                        });
+
+                        // Create a blob from chunks
+                        const rawBlob = new Blob(chunks, { type: 'audio/webm;codecs=opus' });
+
+                        // Convert blob to array buffer
+                        const arrayBuffer = await rawBlob.arrayBuffer();
+
+                        // Decode audio data
+                        const audioData = await audioContext.decodeAudioData(arrayBuffer);
+
+                        // Create an offline context
+                        const offlineContext = new OfflineAudioContext(
+                            1, // mono
+                            audioData.length, // maintain original length
+                            16000 // sample rate
+                        );
+
+                        // Create a buffer source
+                        const source = offlineContext.createBufferSource();
+                        source.buffer = audioData;
+                        source.connect(offlineContext.destination);
+
+                        // Start rendering
+                        source.start(0);
+                        const renderedBuffer = await offlineContext.startRendering();
+
+                        // Convert to WAV format
+                        const wavBlob = this.bufferToWav(renderedBuffer);
+                        
+                        return wavBlob;
+                    } catch (error) {
+                        console.error('Error creating audio blob:', error);
+                        throw new Error('Failed to process audio data');
+                    }
+                },
+
+                // Helper function to convert AudioBuffer to WAV format
+                bufferToWav(audioBuffer) {  
+                    console.log('Original duration:', audioBuffer.duration);
+                    const numChannels = 1; // Mono
+                    const sampleRate = 16000;
+                    const bytesPerSample = 2; // 16-bit
+                    const format = 1; // PCM
+                    
+                    const length = audioBuffer.length * numChannels * bytesPerSample;
+                    const arrayBuffer = new ArrayBuffer(44 + length);  // Renamed to arrayBuffer
+                    const view = new DataView(arrayBuffer);
+                    
+                    // Write WAV header
+                    const writeString = (view, offset, string) => {
+                        for (let i = 0; i < string.length; i++) {
+                            view.setUint8(offset + i, string.charCodeAt(i));
+                        }
+                    };
+                    
+                    writeString(view, 0, 'RIFF');
+                    view.setUint32(4, 36 + length, true);
+                    writeString(view, 8, 'WAVE');
+                    writeString(view, 12, 'fmt ');
+                    view.setUint32(16, 16, true);
+                    view.setUint16(20, format, true);
+                    view.setUint16(22, numChannels, true);
+                    view.setUint32(24, sampleRate, true);
+                    view.setUint32(28, sampleRate * numChannels * bytesPerSample, true);
+                    view.setUint16(32, numChannels * bytesPerSample, true);
+                    view.setUint16(34, 8 * bytesPerSample, true);
+                    writeString(view, 36, 'data');
+                    view.setUint32(40, length, true);
+                    
+                    // Write audio data
+                    const channelData = audioBuffer.getChannelData(0);
+                    let offset = 44;
+                    for (let i = 0; i < channelData.length; i++) {
+                        const sample = Math.max(-1, Math.min(1, channelData[i]));
+                        view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+                        offset += 2;
+                    }
+                    
+                    return new Blob([arrayBuffer], { type: 'audio/wav' });
+                },
+
+                async get_similarity(sampleId) {
+                    if (!sampleId) return;
+
+                    try {
+                        const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+                        const response = await fetch('/get_similarity', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': csrfToken,
+                            },
+                            credentials: 'same-origin',
+                            body: JSON.stringify({ sampleId: sampleId })
+                        });
+
+                        if (!response.ok) {
+                            const contentType = response.headers.get('content-type');
+                            if (contentType && contentType.includes('application/json')) {
+                                const errorData = await response.json();
+                                throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+                            } else {
+                                throw new Error(`Server error: ${response.status}`);
+                            }
+                        }
+
+                        const data = await response.json();
+                        this.updateScoreDisplays(data);
+                        
+                        // Enable clear similarity button after successful comparison
+                        VoiceEnrollment.updateButtonStates(true, true);
+                        
+                        return data.similarity_results;
+                    } catch (error) {
+                        console.error('Error getting similarity:', error);
+                        this.showMessage(`Error in getting similarity: ${error.message}`, 'error');
+                        return null;
+                    }
+                },
+                
+
+                updateScoreDisplays(data) {
+                    // Update average score
+                    const avg_embedding = data.avg_embedding[0];
+                    this.updateScoreElement("display-average-score", avg_embedding);
+
+                    // Update individual scores
+                    data.similarity_results.forEach(result => {
+                        this.updateScoreElement(`display-sample-score${result.sample_id}`, result.similarity);
+                    });
+                },
+
+                updateScoreElement(elementId, score) {
+                    const element = document.getElementById(elementId);
+                    if (!element) return;
+
+                    const percentage = (score * 100).toFixed(2);
+                    element.className = 'score-display ' + (percentage >= 86 ? 'score-high' : 'score-low');
+                    element.innerHTML = `
+                        <span class="score-value">${percentage}%</span>
+                        ${percentage >= 86 ? 
+                            '<span class="score-icon">✓</span>' : 
+                            '<span class="score-icon">×</span>'
+                        }
+                    `;
+                },
+
+                showMessage(message, type = 'info') {
+                    alert(message); 
+                },
+                },
+
+            // Main initialization
+            init() {
+                this.initializeControls();
+                this.initializeOptionButtons();
+                this.initializeAdditionalButtons();
+                this.loadSavedSamples();
+                this.updateButtonStates(false, false);
+                console.log('Voice verification system initialized');
+            },
+
+            initializeControls() {
+                this.initializeRecordingControls();
+                this.initializeUploadControls();
+                this.initializeSavedSamplesDropdown();
+                this.initializeCheckButton();
+            },
+
+            initializeOptionButtons() {
+                document.querySelectorAll('.option-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        const targetId = btn.getAttribute('data-target');
+                        if (!targetId) return;
+
+                        const targetContent = document.getElementById(targetId);
+                        if (!targetContent) return;
+
+                        // Toggle current content
+                        const isCurrentlyVisible = !targetContent.classList.contains('hidden');
+                        
+                        if (isCurrentlyVisible) {
+                            targetContent.classList.add('hidden');
+                        } else {
+                            // Hide all contents first
+                            document.querySelectorAll('.option-content').forEach(content => {
+                                content.classList.add('hidden');
+                            });
+                            
+                            // Show the selected content
+                            targetContent.classList.remove('hidden');
+                        }
+                    });
+                });
+            },
+
+            // Recording functionality
+            initializeRecordingControls() {
+                const recordSection = document.getElementById('record');
+                if (!recordSection) return;
+
+                const recordBtn = recordSection.querySelector('.record-btn');
+                const clearBtn = recordSection.querySelector('.clear-btn');
+                const saveBtn = recordSection.querySelector('.save-btn');
+
+                if (recordBtn) {
+                    recordBtn.addEventListener('click', async (e) => {
+                        e.preventDefault();
+                        if (this.state.mediaRecorder === null) {
+                            await this.startRecording(recordBtn);
+                        } else {
+                            this.stopRecording(recordBtn);
+                        }
+                    });
+                }
+
+                if (clearBtn) {
+                    clearBtn.addEventListener('click', () => this.clearRecording());
+                }
+
+                if (saveBtn) {
+                    saveBtn.addEventListener('click', async () => {
+                        if (this.validateRecording()) {
+                            await this.saveSample();
+                        }
+                    });
+                }
+            },
+
+            initializeAdditionalButtons() {
+                // Initialize clear similarity button
+                const clearSimBtn = document.querySelector('.btn-clear-similarity');
+                if (clearSimBtn) {
+                    clearSimBtn.addEventListener('click', () => this.clearSimilarity());
+                }
+
+                // Initialize delete sample button
+                const deleteBtn = document.querySelector('.btn-delete-sample');
+                if (deleteBtn) {
+                    deleteBtn.addEventListener('click', () => this.deleteSample());
+                }
+
+                // Initialize download button
+                const downloadBtn = document.querySelector('.btn-download-sample');
+                if (downloadBtn) {
+                    downloadBtn.addEventListener('click', () => this.downloadSample());
+                }
+            },
+
+            updateButtonStates(isSelected, hasSimilarity = false, isPlaying = false) {
+                const playButton = document.querySelector('.btn-play-current');
+                const checkButton = document.querySelector('.btn-check');
+                const clearSimButton = document.querySelector('.btn-clear-similarity');
+                const deleteButton = document.querySelector('.btn-delete-sample');
+                const downloadButton = document.querySelector('.btn-download-sample');
+
+                // If no sample is selected, disable all buttons
+                if (!isSelected) {
+                    if (playButton) playButton.disabled = true;
+                    if (checkButton) checkButton.disabled = true;
+                    if (clearSimButton) clearSimButton.disabled = true;
+                    if (deleteButton) deleteButton.disabled = true;
+                    if (downloadButton) downloadButton.disabled = true;
+                    return;
+                }
+
+                // If playing, disable all buttons except play button
+                if (isPlaying) {
+                    if (checkButton) checkButton.disabled = true;
+                    if (clearSimButton) clearSimButton.disabled = true;
+                    if (deleteButton) deleteButton.disabled = true;
+                    if (downloadButton) downloadButton.disabled = true;
+                    return;
+                }
+
+                // Normal state handling when selected and not playing
+                if (playButton) playButton.disabled = false;
+                if (checkButton) checkButton.disabled = false;
+                if (deleteButton) deleteButton.disabled = false;
+                if (downloadButton) downloadButton.disabled = false;
+                if (clearSimButton) clearSimButton.disabled = !hasSimilarity;
+            },
+
+            clearSimilarity() {
+                try {
+                    // Check if there are any scores displayed
+                    const scoreDisplays = document.querySelectorAll('[id^="display-sample-score"]');
+                    const avgScoreDisplay = document.getElementById('display-average-score');
+                    let hasScores = false;
+
+                    // Check if any score displays have content
+                    scoreDisplays.forEach(display => {
+                        if (display && display.innerHTML.trim() !== '') {
+                            hasScores = true;
+                            display.className = 'text-break';
+                            display.innerHTML = '';
+                        }
+                    });
+
+                    // Check and clear average score
+                    if (avgScoreDisplay && avgScoreDisplay.innerHTML.trim() !== '') {
+                        hasScores = true;
+                        avgScoreDisplay.className = 'text-break';
+                        avgScoreDisplay.innerHTML = '';
+                    }
+
+                    if (!hasScores) {
+                        return; // Don't show message if there were no scores to clear
+                    }
+
+                    // Update button states
+                    this.updateButtonStates(true, false);
+
+                    this.utils.showMessage('Similarity scores cleared', 'success');
+                } catch (error) {
+                    console.error('Error clearing similarity:', error);
+                    this.utils.showMessage('Error clearing similarity scores', 'error');
+                }
+            },
+
+            async deleteSample() {
+                if (!this.state.selectedSample) {
+                    this.utils.showMessage('Please select a sample first', 'warning');
+                    return;
+                }
+
+                try {
+                    const confirmed = confirm('Are you sure you want to delete this sample?');
+                    if (!confirmed) return;
+
+                    const response = await fetch('/delete_sample', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': this.getCSRFToken()
+                        },
+                        body: JSON.stringify({
+                            sample_id: this.state.selectedSample.id
+                        }),
+                        credentials: 'same-origin'
+                    });
+
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        // Clear waveform
+                        if (this.state.current_wavesurfer) {
+                            this.state.current_wavesurfer.destroy();
+                            this.state.current_wavesurfer = null;
+                        }
+
+                        // Update dropdown
+                        const dropdown = document.getElementById('savedSamplesDropdown');
+                        if (dropdown) {
+                            // Remove the option
+                            const option = dropdown.querySelector(`option[value="${this.state.selectedSample.id}"]`);
+                            if (option) option.remove();
+                            dropdown.value = ''; // Reset dropdown selection
+                        }
+
+                        // Reset time display
+                        const timeDisplay = document.querySelector('.current-wave-time');
+                        if (timeDisplay) {
+                            timeDisplay.textContent = '00:00 / 00:00';
+                        }
+
+                        // Clear similarity scores if present
+                        this.clearSimilarity();
+
+                        // Update saved samples array
+                        this.state.savedSamples = this.state.savedSamples.filter(
+                            sample => sample.id !== this.state.selectedSample.id
+                        );
+
+                        // Reset selected sample
+                        this.state.selectedSample = null;
+
+                        // Disable all buttons since no sample is selected
+                        this.updateButtonStates(false, false);
+
+                        this.utils.showMessage('Sample deleted successfully', 'success');
+                    } else {
+                        throw new Error(data.error || 'Delete failed');
+                    }
+                } catch (error) {
+                    console.error('Error deleting sample:', error);
+                    this.utils.showMessage(`Error deleting sample: ${error.message}`, 'error');
+                }
+            },
+
+            async downloadSample() {
+                if (!this.state.selectedSample) {
+                    this.utils.showMessage('Please select a sample first', 'warning');
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`/download_sample/${this.state.selectedSample.id}`, {
+                        method: 'GET',
+                        headers: {
+                            'X-CSRFToken': this.getCSRFToken()
+                        },
+                        credentials: 'same-origin'
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Failed to download sample');
+                    }
+
+                    // Create blob from response
+                    const blob = await response.blob();
+                    
+                    // Create download link
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = `sample_${this.state.selectedSample.id}.wav`;
+                    
+                    // Trigger download
+                    document.body.appendChild(a);
+                    a.click();
+                    
+                    // Cleanup
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                    
+                    this.utils.showMessage('Download started', 'success');
+                } catch (error) {
+                    console.error('Error downloading sample:', error);
+                    this.utils.showMessage(`Error downloading sample: ${error.message}`, 'error');
+                }
+            },
+
+            async startRecording(button) {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ 
+                        audio: {
+                            channelCount: 1,
+                            sampleRate: 16000,
+                            sampleSize: 16
+                        } 
+                    });
+                    
+                    const mediaRecorder = new MediaRecorder(stream, {
+                        mimeType: 'audio/webm;codecs=opus',
+                        audioBitsPerSecond: 16000 * 16
+                    });
+                    
+                    // Reset state
+                    this.state.mediaRecorder = mediaRecorder;
+                    this.state.audioChunks = [];
+                    this.state.recordingDuration = 0;
+
+                    const recordContent = document.getElementById('record');
+                    const timeDisplay = recordContent.querySelector('.record-time');
+                    
+                    this.setupRecordingEventListeners(mediaRecorder);
+                    this.updateRecordingUI(button, timeDisplay, true);
+                    
+                    // Start recording
+                    mediaRecorder.start(1000);
+                    this.startRecordingTimer(timeDisplay);
+
+                } catch (error) {
+                    console.error('Error starting recording:', error);
+                    this.utils.showMessage('Error accessing microphone. Please ensure microphone permissions are granted.', 'error');
+                }
+            },
+
+            validateRecording() {
+                if (!this.state.audioChunks?.length) {
+                    this.utils.showMessage('No recording to save. Please record audio first.', 'warning');
+                    return false;
+                }
+
+                if (this.state.recordingDuration < 5) {
+                    this.utils.showMessage('Recording is too short. Please speak for at least 5 seconds.', 'warning');
+                    return false;
+                }
+
+                return true;
+            },
+
+            clearRecording() {
+                try {
+                    // Stop any active recording
+                    if (this.state.mediaRecorder?.state === 'recording') {
+                        const recordBtn = document.querySelector('.record-btn');
+                        this.stopRecording(recordBtn);
+                    }
+
+                    // Stop any active playback
+                    if (this.state.record_wavesurfer?.isPlaying()) {
+                        this.state.record_wavesurfer.pause();
+                    }
+
+                    // Clear state
+                    this.state.audioChunks = [];
+                    this.state.recordingDuration = 0;
+                    this.state.activePlayback = null;
+
+                    // Reset UI
+                    const recordContent = document.getElementById('record');
+                    const recordBtn = recordContent.querySelector('.record-btn');
+                    const timeDisplay = recordContent.querySelector('.record-time');
+                    const waveDuration = recordContent.querySelector('.upload-wave-time');
+                    const playBtn = recordContent.querySelector('.wave-play-btn');
+                    const waveformContainer = recordContent.querySelector('.waveform');
+
+                    if (recordBtn) {
+                        recordBtn.innerHTML = '<span class="record-icon">⬤</span> Start Recording';
+                        recordBtn.classList.remove('recording');
+                        recordBtn.disabled = false;
+                    }
+
+                    if (timeDisplay) {
+                        timeDisplay.classList.add('hidden');
+                        timeDisplay.textContent = '00:00';
+                    }
+
+                    if (waveDuration) {
+                        waveDuration.textContent = '00:00 / 00:00';
+                    }
+
+                    if (playBtn) {
+                        playBtn.innerHTML = '<span class="play-icon">▶</span>';
+                        playBtn.disabled = true;
+                    }
+
+                    // Clear waveform
+                    if (this.state.record_wavesurfer) {
+                        this.state.record_wavesurfer.destroy();
+                        this.state.record_wavesurfer = null;
+                    }
+
+                    if (waveformContainer) {
+                        waveformContainer.innerHTML = '';
+                    }
+
+                    // Reset buttons
+                    const clearBtn = recordContent.querySelector('.clear-btn');
+                    const saveBtn = recordContent.querySelector('.save-btn');
+                    if (clearBtn) clearBtn.disabled = true;
+                    if (saveBtn) saveBtn.disabled = true;
+
+                    console.log('Recording cleared successfully');
+
+                } catch (error) {
+                    console.error('Error clearing recording:', error);
+                    this.utils.showMessage('Error clearing recording', 'error');
+                }
+            },
+
+            setupRecordingEventListeners(mediaRecorder) {
+                mediaRecorder.addEventListener('dataavailable', event => {
+                    if (event.data.size > 0) {
+                        this.state.audioChunks.push(event.data);
+                    }
+                });
+
+                mediaRecorder.addEventListener('stop', () => {
+                    this.handleRecordingStop();
+                });
+            },
+
+            updateRecordingUI(button, timeDisplay, isRecording) {
+                const recordContent = document.getElementById('record');
+                
+                // Update record button
+                button.innerHTML = isRecording ? 
+                    '<span class="record-icon recording-active">⬤</span> Stop Recording' :
+                    '<span class="record-icon">⬤</span> Start Recording';
+                button.classList.toggle('recording', isRecording);
+                
+                // Show/hide time display based on recording state
+                if (timeDisplay) {
+                    if (isRecording) {
+                        timeDisplay.classList.remove('hidden');
+                        timeDisplay.textContent = '00:00';
+                    } else {
+                        timeDisplay.classList.add('hidden');
+                    }
+                }
+
+                // Update other controls
+                const controls = recordContent.querySelectorAll('.clear-btn, .save-btn, .wave-play-btn');
+                controls.forEach(control => {
+                    if (control) control.disabled = isRecording;
+                });
+            },
+
+
+            startRecordingTimer(display) {
+                if (this.state.timer) {
+                    clearInterval(this.state.timer);
+                }
+
+                const startTime = Date.now();
+                this.state.recordingDuration = 0;
+
+                // Only start the timer if display exists and is visible
+                if (display && !display.classList.contains('hidden')) {
+                    this.state.timer = setInterval(() => {
+                        if (this.state.mediaRecorder?.state === 'recording') {
+                            const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                            this.state.recordingDuration = elapsed;
+                            display.textContent = this.utils.formatTime(elapsed);
+                        }
+                    }, 100);
+                }
+            },
+
+            stopRecording(button) {
+                try {
+                    if (this.state.mediaRecorder?.state === 'recording') {
+                        this.state.mediaRecorder.stop();
+                        this.state.mediaRecorder.stream.getTracks().forEach(track => track.stop());
+                    }
+                    
+                    this.state.mediaRecorder = null;
+                    clearInterval(this.state.timer);
+                    
+                    const recordContent = document.getElementById('record');
+                    const timeDisplay = recordContent.querySelector('.record-time');
+                    this.updateRecordingUI(button, timeDisplay, false);
+                    
+                } catch (error) {
+                    console.error('Error stopping recording:', error);
+                    this.utils.showMessage('Error stopping recording', 'error');
+                }
+            },
+
+            async handleRecordingStop() {
+                const container = document.getElementById("record-sample-id");             
+                const recordContent = document.getElementById('record');
+
+                if (!container || !this.state.audioChunks?.length) {
+                    console.error('No container or audio chunks available');
+                    return;
+                }
+
+                try {
+                    await this.setupRecordingWaveform(container, recordContent);
+                } catch (error) {
+                    console.error('Error in handleRecordingStop:', error);
+                    this.utils.showMessage('Error loading recorded audio', 'error');
+                    this.resetRecordingUIOnError(recordContent);
+                }
+            },
+
+            async setupRecordingWaveform(container, recordContent) {
+                // Clean up existing wavesurfer
+                if (this.state.record_wavesurfer) {
+                    this.state.record_wavesurfer.destroy();
+                    this.state.record_wavesurfer = null;
+                }
+
+                const audioBlob = await this.utils.createAudioBlob(this.state.audioChunks);
+                const audioUrl = URL.createObjectURL(audioBlob);
+
+                // Create new wavesurfer
+                const wavesurfer = WaveSurfer.create({
+                    container: container,
+                    height: 80,
+                    waveColor: '#4F4A85',
+                    progressColor: '#383351',
+                    cursorColor: '#333',
+                    barWidth: 2,
+                    barGap: 1,
+                    responsive: true,
+                    normalize: true,
+                    interact: true,
+                    backend: 'WebAudio'
+                });
+
+                this.state.record_wavesurfer = wavesurfer;
+
+                const playBtn = recordContent.querySelector('.wave-play-btn');
+                const timeDisplay = recordContent.querySelector('.upload-wave-time');
+                
+                this.setupWaveformEvents(wavesurfer, playBtn, timeDisplay);
+
+                try {
+                    await wavesurfer.load(audioUrl);
+                    // Enable controls after successful load
+                    const controls = recordContent.querySelectorAll('.clear-btn, .save-btn');
+                    controls.forEach(control => {
+                        if (control) control.disabled = false;
+                    });
+                } catch (error) {
+                    throw error;
+                } finally {
+                    URL.revokeObjectURL(audioUrl);
+                }
+            },
+
+            // Upload functionality
+            initializeUploadControls() {
+                const uploadSection = document.getElementById('upload');
+                if (!uploadSection) return;
+
+                const fileInput = uploadSection.querySelector('input[type="file"]');
+                const clearBtn = uploadSection.querySelector('.clear-btn');
+                const saveBtn = uploadSection.querySelector('.save-btn');
+
+                if (fileInput) {
+                    fileInput.addEventListener('change', (e) => this.handleFileUpload(e));
+                }
+
+                if (clearBtn) {
+                    clearBtn.addEventListener('click', () => this.clearUpload());
+                }
+
+                if (saveBtn) {
+                    saveBtn.addEventListener('click', async () => {
+                        await this.saveUploadedFile();
+                    });
+                }
+            },
+
+            async handleFileUpload(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                try {
+                    if (!this.validateAudioFile(file)) {
+                        event.target.value = '';
+                        return;
+                    }
+
+                    this.state.uploadedFile = file;
+                    await this.previewUploadedFile(file);
+                    
+                    const uploadSection = document.getElementById('upload');
+                    const saveBtn = uploadSection.querySelector('.save-btn');
+                    if (saveBtn) {
+                        saveBtn.disabled = false;
+                    }
+
+                } catch (error) {
+                    console.error('File upload error:', error);
+                    this.utils.showMessage(`File upload error: ${error.message}`, 'error');
+                    event.target.value = '';
+                    this.state.uploadedFile = null;
+                }
+            },
+
+            validateAudioFile(file) {
+                const validTypes = ['audio/wav', 'audio/mp3', 'audio/webm'];
+                const maxSize = 16 * 1024 * 1024; // 16MB
+
+                if (!validTypes.includes(file.type)) {
+                    this.utils.showMessage('Please upload a valid audio file (WAV, MP3, or WebM)', 'error');
+                    return false;
+                }
+
+                if (file.size > maxSize) {
+                    this.utils.showMessage('File size must be less than 16MB', 'error');
+                    return false;
+                }
+
+                return true;
+            },
+
+            async previewUploadedFile(file) {
+                const container = document.getElementById('record-sample-id');
+                if (!container) return;
+
+                if (this.state.upload_wavesurfer) {
+                    this.state.upload_wavesurfer.destroy();
+                    this.state.upload_wavesurfer = null;
+                }
+
+                const wavesurfer = WaveSurfer.create({
+                    container: container,
+                    height: 80,
+                    waveColor: '#4F4A85',
+                    progressColor: '#383351',
+                    cursorColor: '#333',
+                    barWidth: 2,
+                    barGap: 1,
+                    responsive: true,
+                    normalize: true,
+                    interact: true
+                });
+
+                this.state.upload_wavesurfer = wavesurfer;
+
+                try {
+                    await wavesurfer.loadBlob(file);
+                    const timeDisplay = document.querySelector('.upload-wave-time');
+                    const playBtn = document.querySelector('.wave-play-btn');
+                    this.setupWaveformEvents(wavesurfer, playBtn, timeDisplay);
+                } catch (error) {
+                    console.error('Error previewing file:', error);
+                    throw new Error('Error previewing audio file');
+                }
+            },
+
+            clearUpload() {
+                const uploadSection = document.getElementById('upload');
+                if (!uploadSection) return;
+
+                const fileInput = uploadSection.querySelector('input[type="file"]');
+                if (fileInput) fileInput.value = '';
+
+                if (this.state.upload_wavesurfer) {
+                    this.state.upload_wavesurfer.destroy();
+                    this.state.upload_wavesurfer = null;
+                }
+
+                const timeDisplay = uploadSection.querySelector('.upload-wave-time');
+                if (timeDisplay) timeDisplay.textContent = '00:00 / 00:00';
+
+                const saveBtn = uploadSection.querySelector('.save-btn');
+                if (saveBtn) saveBtn.disabled = true;
+
+                this.state.uploadedFile = null;
+            },
+
+            async saveSample() {
+                if (!this.state.audioChunks?.length) {
+                    this.utils.showMessage('No recording to save', 'warning');
+                    return;
+                }
+
+                try {
+                    // Create WAV blob from recorded audio chunks
+                    const audioBlob = await this.utils.createAudioBlob(this.state.audioChunks);
+                    
+                    // Create FormData and append necessary data
+                    const formData = new FormData();
+                    formData.append('voice_file', audioBlob, 'recording.wav');
+                    formData.append('csrf_token', this.getCSRFToken());
+
+                    // Disable save button and show loading state
+                    const saveBtn = document.querySelector('.save-btn');
+                    if (saveBtn) {
+                        saveBtn.disabled = true;
+                        saveBtn.textContent = 'Saving...';
+                    }
+
+                    // Upload the file
+                    const response = await this.uploadFile(formData);
+                    
+                    if (response.success) {
+                        this.utils.showMessage('Recording saved successfully', 'success');
+                        // Reload page to show new sample
+                        window.location.reload();
+                    } else {
+                        throw new Error(response.error || 'Save failed');
+                    }
+
+                } catch (error) {
+                    console.error('Save error:', error);
+                    this.utils.showMessage(`Save failed: ${error.message}`, 'error');
+                    
+                    // Re-enable save button on error
+                    const saveBtn = document.querySelector('.save-btn');
+                    if (saveBtn) {
+                        saveBtn.disabled = false;
+                        saveBtn.textContent = 'Save';
+                    }
+                }
+            },
+
+            async saveUploadedFile() {
+                if (!this.state.uploadedFile) {
+                    this.utils.showMessage('Please select a file first', 'warning');
+                    return;
+                }
+
+                try {
+                    const formData = new FormData();
+                    formData.append('voice_file', this.state.uploadedFile);
+                    formData.append('csrf_token', this.getCSRFToken());
+
+                    const response = await this.uploadFile(formData);
+                    
+                    if (response.success) {
+                        this.utils.showMessage('File uploaded successfully', 'success');
+                        window.location.reload();
+                    } else {
+                        throw new Error(response.error || 'Upload failed');
+                    }
+                } catch (error) {
+                    console.error('Save error:', error);
+                    this.utils.showMessage(`Save failed: ${error.message}`, 'error');
+                }
+            },
+
+            // Waveform Management
+            setupWaveformEvents(wavesurfer, playBtn, timeDisplay) {
+                let updateTimer;
+
+                const updateTimeDisplay = () => {
+                    if (timeDisplay && wavesurfer) {
+                        try {
+                            const current = wavesurfer.getCurrentTime();
+                            const duration = wavesurfer.getDuration();
+                            timeDisplay.textContent = `${this.utils.formatTime(current)} / ${this.utils.formatTime(duration)}`;
+                        } catch (error) {
+                            console.error('Error updating time display:', error);
+                            timeDisplay.textContent = '00:00 / 00:00';
+                        }
+                    }
+                };
+
+                const updatePlayIcon = (isPlaying) => {
+                    if (playBtn) {
+                        const playIcon = playBtn.querySelector('.play-icon');
+                        if (playIcon) {
+                            playIcon.textContent = isPlaying ? '⏸' : '▶';
+                        }
+                    }
+                };
+
+                const updateControlsState = (isPlaying) => {
+                    const container = playBtn.closest('.option-content') || playBtn.closest('.current-sample-details');
+                    if (container) {
+                        const allButtons = container.querySelectorAll('button:not(.wave-play-btn)');
+                        allButtons.forEach(button => {
+                            button.disabled = isPlaying;
+                        });
+                    }
+                };
+
+                // Setup waveform events
+                wavesurfer.on('ready', () => {
+                    if (playBtn) {
+                        playBtn.disabled = false;
+                        updatePlayIcon(false);
+                    }
+                    updateTimeDisplay();
+                });
+
+                wavesurfer.on('error', (error) => {
+                    console.error('WaveSurfer error:', error);
+                    this.utils.showMessage('Error loading audio', 'error');
+                    if (playBtn) playBtn.disabled = true;
+                });
+
+                wavesurfer.on('audioprocess', updateTimeDisplay);
+                wavesurfer.on('seek', updateTimeDisplay);
+
+                wavesurfer.on('play', () => {
+                    updatePlayIcon(true);
+                    updateControlsState(true);
+                    updateTimer = setInterval(updateTimeDisplay, 100);
+                });
+
+                wavesurfer.on('pause', () => {
+                    updatePlayIcon(false);
+                    updateControlsState(false);
+                    if (updateTimer) {
+                        clearInterval(updateTimer);
+                        updateTimer = null;
+                    }
+                    updateTimeDisplay();
+                });
+
+                wavesurfer.on('finish', () => {
+                    updatePlayIcon(false);
+                    updateControlsState(false);
+                    if (updateTimer) {
+                        clearInterval(updateTimer);
+                        updateTimer = null;
+                    }
+                    updateTimeDisplay();
+                });
+
+                // Setup play button click handler
+                if (playBtn) {
+                    playBtn.addEventListener('click', async () => {
+                        try {
+                            if (wavesurfer.isPlaying()) {
+                                wavesurfer.pause();
+                            } else {
+                                await wavesurfer.play();
+                            }
+                        } catch (error) {
+                            console.error('Error playing/pausing audio:', error);
+                            this.utils.showMessage('Error controlling playback', 'error');
+                            updatePlayIcon(false);
+                            updateControlsState(false);
+                        }
+                    });
+                }
+            },
+
+            // Sample Management and API Interactions
+            async loadSavedSamples() {
+                try {
+                    const response = await fetch('/get_verification_samples', {
+                        method: 'GET',
+                        credentials: 'same-origin'
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Failed to load samples');
+                    }
+
+                    const data = await response.json();
+                    if (data.samples) {
+                        this.state.savedSamples = data.samples;
+                        this.updateSavedSamplesDropdown();
+                    }
+                } catch (error) {
+                    console.error('Error loading saved samples:', error);
+                    this.utils.showMessage('Error loading saved samples', 'error');
+                }
+            },
+
+            updateSavedSamplesDropdown() {
+                const dropdown = document.getElementById('savedSamplesDropdown');
+                if (!dropdown) return;
+
+                // Clear existing options except the first one
+                while (dropdown.options.length > 1) {
+                    dropdown.remove(1);
+                }
+
+                // Add saved samples to dropdown
+                this.state.savedSamples.forEach((sample) => {
+                    const option = document.createElement('option');
+                    option.value = sample.id;
+                    option.setAttribute('data-file-path', sample.file_path);
+                    option.setAttribute('data-sample-id', sample.id);
+
+                    const date = new Date(sample.date_upload);
+                    const formattedDate = date.toLocaleString('en-US', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: false
+                    });
+
+                    option.textContent = `Sample ID: ${sample.id} - ${formattedDate}`;
+                    dropdown.appendChild(option);
+                });
+            },
+
+            initializeSavedSamplesDropdown() {
+                const dropdown = document.getElementById('savedSamplesDropdown');
+                if (!dropdown) return;
+                    
+                dropdown.addEventListener('change', (e) => {
+                    if (this.state.current_wavesurfer) {
+                        this.state.current_wavesurfer.destroy();
+                        this.state.current_wavesurfer = null;
+                    }
+
+                    const selectedId = e.target.value;
+                    if (selectedId === '') {
+                        this.state.selectedSample = null;
+                        this.updateButtonStates(false, false);
+                        return;
+                    }
+
+                    const sample = this.state.savedSamples.find(s => s.id.toString() === selectedId);
+                    if (sample) {
+                        this.loadSavedSample(sample);
+                    }
+                });
+            },
+
+            async loadSavedSample(sample) {
+                try {
+                    const container = document.getElementById("current-sample-id");
+                    if (!container) return;
+
+                    if (this.state.current_wavesurfer) {
+                        this.state.current_wavesurfer.destroy();
+                        this.state.current_wavesurfer = null;
+                    }
+
+                    const wavesurfer = WaveSurfer.create({
+                        container: container,
+                        height: 80,
+                        waveColor: '#4F4A85',
+                        progressColor: '#383351',
+                        cursorColor: '#333',
+                        barWidth: 2,
+                        barGap: 1,
+                        responsive: true,
+                        normalize: true,
+                        interact: true
+                    });
+
+                    this.state.current_wavesurfer = wavesurfer;
+                    this.state.selectedSample = sample;
+
+                    const playBtn = document.querySelector('.btn-play-current');
+                    const timeDisplay = document.querySelector('.current-wave-time');
+                    
+                    // Update play button
+                    const newPlayBtn = playBtn.cloneNode(true);
+                    newPlayBtn.innerHTML = '<span class="play-icon">▶</span> <span class="play-text">Play</span>';
+                    playBtn.parentNode.replaceChild(newPlayBtn, playBtn);
+
+                    this.setupSavedSamplePlayback(wavesurfer, newPlayBtn, timeDisplay);
+
+                    try {
+                        await wavesurfer.load(`/audio/${sample.file_path}`);
+                        this.updateButtonStates(true, false);
+                    } catch (error) {
+                        console.error('Error loading audio:', error);
+                        this.utils.showMessage('Error loading audio file', 'error');
+                    }
+                } catch (error) {
+                    console.error('Error loading saved sample:', error);
+                    this.utils.showMessage('Error loading saved sample', 'error');
+                }
+            },
+
+            setupSavedSamplePlayback(wavesurfer, playBtn, timeDisplay) {
+                let updateTimer;
+
+                const updateTimeDisplay = () => {
+                    if (timeDisplay && wavesurfer) {
+                        const current = wavesurfer.getCurrentTime();
+                        const duration = wavesurfer.getDuration();
+                        timeDisplay.textContent = `${this.utils.formatTime(current)} / ${this.utils.formatTime(duration)}`;
+                    }
+                };
+
+                const updateControlsAndUI = (isPlaying) => {
+                    // Update play button icon and text
+                    const playIcon = playBtn.querySelector('.play-icon');
+                    const playText = playBtn.querySelector('.play-text');
+                    if (playIcon) playIcon.textContent = isPlaying ? '⏸' : '▶';
+                    if (playText) playText.textContent = isPlaying ? 'Pause' : 'Play';
+
+                    // Disable/enable other buttons during playback
+                    this.updateButtonStates(true, this.hasDisplayedSimilarity(), isPlaying);
+
+                    // Update dropdown state
+                    const dropdown = document.getElementById('savedSamplesDropdown');
+                    if (dropdown) dropdown.disabled = isPlaying;
+                };
+
+
+                // Setup waveform events
+                wavesurfer.on('ready', () => {
+                    if (playBtn) {
+                        playBtn.disabled = false;
+                        updateControlsAndUI(false);
+                    }
+                    updateTimeDisplay();
+                });
+
+                wavesurfer.on('play', () => {
+                    updateControlsAndUI(true);
+                    updateTimer = setInterval(updateTimeDisplay, 100);
+                });
+
+                wavesurfer.on('pause', () => {
+                    updateControlsAndUI(false);
+                    if (updateTimer) {
+                        clearInterval(updateTimer);
+                        updateTimer = null;
+                    }
+                    updateTimeDisplay();
+                });
+
+                wavesurfer.on('finish', () => {
+                    updateControlsAndUI(false);
+                    if (updateTimer) {
+                        clearInterval(updateTimer);
+                        updateTimer = null;
+                    }
+                    updateTimeDisplay();
+                });
+
+                // Setup play button click handler
+                if (playBtn) {
+                    playBtn.addEventListener('click', async (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        
+                        try {
+                            if (wavesurfer.isPlaying()) {
+                                wavesurfer.pause();
+                            } else {
+                                await wavesurfer.play();
+                            }
+                        } catch (error) {
+                            console.error('Error controlling playback:', error);
+                            this.utils.showMessage('Error controlling playback', 'error');
+                            updateControlsAndUI(false);
+                        }
+                    });
+                }
+            },
+
+            hasDisplayedSimilarity() {
+                const scoreDisplays = document.querySelectorAll('[id^="display-sample-score"]');
+                const avgScoreDisplay = document.getElementById('display-average-score');
+                
+                // Check individual scores
+                for (const display of scoreDisplays) {
+                    if (display && display.innerHTML.trim() !== '') {
+                        return true;
+                    }
+                }
+                
+                // Check average score
+                if (avgScoreDisplay && avgScoreDisplay.innerHTML.trim() !== '') {
+                    return true;
+                }
+                
+                return false;
+            },
+
+            setupWaveformBasicEvents(wavesurfer, updateTimer, updateTimeDisplay, updateControlsAndUI) {
+                wavesurfer.on('audioprocess', updateTimeDisplay);
+                wavesurfer.on('seek', updateTimeDisplay);
+
+                wavesurfer.on('play', () => {
+                    updateControlsAndUI(true);
+                    updateTimer = setInterval(updateTimeDisplay, 100);
+                });
+
+                wavesurfer.on('pause', () => {
+                    updateControlsAndUI(false);
+                    if (updateTimer) {
+                        clearInterval(updateTimer);
+                        updateTimer = null;
+                    }
+                    updateTimeDisplay();
+                });
+
+                wavesurfer.on('finish', () => {
+                    updateControlsAndUI(false);
+                    if (updateTimer) {
+                        clearInterval(updateTimer);
+                        updateTimer = null;
+                    }
+                    updateTimeDisplay();
+                });
+            },
+
+            // API Interactions
+            async uploadFile(formData) {
+                try {
+                    console.log('Starting file upload...');
+                    
+                    const response = await fetch('/verify', {
+                        method: 'POST',
+                        body: formData,
+                        credentials: 'same-origin'
+                    });
+
+                    console.log('Response status:', response.status);
+                    
+                    const data = await response.json();
+                    console.log('Response data:', data);
+
+                    if (!response.ok) {
+                        throw new Error(data.error || `HTTP error! status: ${response.status}`);
+                    }
+
+                    return data;
+                } catch (error) {
+                    console.error('HTTP Upload error:', error);
+                    throw error;
+                }
+            },
+
+            initializeCheckButton() {
+                const checkBtn = document.querySelector('.btn-check');
+                if (checkBtn) {
+                    checkBtn.addEventListener('click', async (e) => {
+                        e.preventDefault();
+                        if (this.state.selectedSample) {
+                            await this.utils.get_similarity(this.state.selectedSample.id);
+                        } else {
+                            this.utils.showMessage('Please select a sample first', 'warning');
+                        }
+                    });
+                }
+            },
+
+            getCSRFToken() {
+                return document.querySelector('input[name="csrf_token"]')?.value || '';
+            }
+            };
+
+            // Initialize the application
+            VoiceEnrollment.init();
+            });
+
+
+    
+    </script>
+
+{% endblock %}

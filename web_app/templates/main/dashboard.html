@@ -1,0 +1,279 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<!-- Main Content Container -->
+<div class="container">
+    <!-- Dashboard Header -->
+    <div class="card {% if current_user.is_admin %}bg-dark{% else %}bg-primary{% endif %} text-white mb-4">
+        <div class="card-body">
+            <h1 class="h3 mb-2">
+                {% if current_user.is_admin %}
+                    Admin Dashboard
+                {% else %}
+                    Dashboard
+                {% endif %}
+            </h1>
+            <p class="mb-0">
+                {% if current_user.is_admin %}
+                    System Overview
+                {% endif %}
+            </p>
+        </div>
+    </div>
+
+    {% if current_user.is_admin %}
+    <div class="row mb-4">
+        <!-- Total Users -->
+        <div class="col-md-4 mb-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title text-secondary">Total Users</h5>
+                    <div class="d-flex align-items-center">
+                        <h2 class="mb-0">{{ stats.total_users }}</h2>
+                    </div>
+                    <small class="text-muted">{{ stats.active_users }} active in last 24h</small>
+                </div>
+            </div>
+        </div>
+    
+        <!-- Total Verifications -->
+        <div class="col-md-4 mb-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title text-secondary">Verification Statistics</h5>
+                    <div class="d-flex align-items-center">
+                        <h2 class="mb-0">{{ stats.total_verifications }}</h2>
+                    </div>
+                    <div class="mt-2">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="text-success">
+                                <i class="fas fa-check-circle mr-1"></i> Success
+                            </span>
+                            <span class="text-success">{{ stats.success_rate }}%</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-danger">
+                                <i class="fas fa-times-circle mr-1"></i> Failed
+                            </span>
+                            <span class="text-danger">{{ stats.fail_rate }}%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    
+        <!-- System Status -->
+        <div class="col-md-4 mb-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title text-secondary">System Status</h5>
+                    <div class="d-flex align-items-center">
+                        <span class="text-success mr-2">●</span>
+                        <span>Operational</span>
+                    </div>
+                    <small class="text-muted">Last updated: {{ stats.last_update }}</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% else %}
+        <!-- User Stats Cards Row -->
+        <div class="row mb-4">
+            <!-- Voice Profile Status -->
+            <div class="col-md-4 mb-3">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title text-secondary">Voice Profile Status</h5>
+                        {% if current_user.voice_profile.is_complete %}
+                        <div class="d-flex align-items-center">
+                            <span class="text-success mr-2">●</span>
+                            <span>Enrolled</span>
+                        </div>
+                        {% else %}
+                        <div class="d-flex flex-column">
+                            <div class="mb-3">
+                                <span class="text-warning mr-2">●</span>
+                                <span>Not Enrolled</span>
+                            </div>
+                            <div>
+                                <a href="{{ url_for('voices.enroll_page') }}" class="btn btn-outline-primary btn-sm">Enroll Now</a>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Authentication Stats -->
+            <div class="col-md-4 mb-3">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title text-secondary">Authentication Stats</h5>
+                        <div class="mb-2">
+                            <span>Success Rate: {{ success_rate }}%</span>
+                        </div>
+                        <div>
+                            <span>Total Attempts: {{ total_attempts }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Last Activity -->
+            <div class="col-md-4 mb-3">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title text-secondary">Last Activity</h5>
+                        <div class="mb-2">
+                            <span>Last Login: {{ last_login_time }}</span>
+                        </div>
+                        <div>
+                            <span>Last Verification: {{ last_verification_time }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- Activity Log -->
+    <div class="card mb-4">
+        <div class="card-body">
+            {% if current_user.is_admin %}
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="card-title text-secondary mb-0">System Activity Log</h5>
+                    <div class="btn-group">
+                        <button class="btn btn-sm btn-outline-secondary" id="refresh-log">Refresh</button>
+                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                            Filter
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="?">All Activities</a></li>
+                            <li><a class="dropdown-item" href="?activity_type=verification">Verifications</a></li>
+                            <li><a class="dropdown-item" href="?activity_type=enrollment">Enrollments</a></li>
+                            <li><a class="dropdown-item" href="?activity_type=login">Logins</a></li>
+                        </ul>
+                    </div>
+                </div>
+            {% else %}
+                <h5 class="card-title text-secondary mb-3">Recent Activity</h5>
+            {% endif %}
+
+            <div class="table-responsive">
+                <table class="table">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Date</th>
+                            {% if current_user.is_admin %}
+                                <th>User</th>
+                            {% endif %}
+                            <th>Activity</th>
+                            <th>Status</th>
+                            <th>Details</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for activity in activities %}
+                        <tr>
+                            <td>{{ activity.format_timestamp() }}</td>
+                            {% if current_user.is_admin %}
+                                <td>
+                                    <a class="text-decoration-none">
+                                        {{ activity.user.username }}
+                                    </a>
+                                </td>
+                            {% endif %}
+                            <td>
+                                <span class="badge bg-{{ activity.activity_type|activity_badge }}">
+                                    {{ activity.activity_type }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge bg-{{ activity.status|status_badge }}">
+                                    {{ activity.status }}
+                                </span>
+                            </td>
+                            <td>{{ activity.details }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {% if current_user.is_admin and activities.pages > 1 %}
+                <!-- Pagination -->
+                <nav aria-label="Activity log navigation" class="mt-3">
+                    <ul class="pagination justify-content-center">
+                        {% for page in activities.iter_pages() %}
+                            {% if page %}
+                                <li class="page-item {{ 'active' if page == activities.page else '' }}">
+                                    <a class="page-link" href="?page={{ page }}">{{ page }}</a>
+                                </li>
+                            {% else %}
+                                <li class="page-item disabled">
+                                    <span class="page-link">...</span>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+                    </ul>
+                </nav>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+    .card {
+        border: 1px solid rgba(0,0,0,0.125);
+        box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075);
+    }
+    
+    .card-title {
+        font-size: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .badge {
+        padding: 0.5em 0.75em;
+        font-weight: 500;
+    }
+    
+    .table td, .table th {
+        padding: 0.75rem;
+        vertical-align: middle;
+    }
+    
+    .card h2 {
+        font-size: 2rem;
+        font-weight: 600;
+        color: #343a40;
+    }
+    
+    .text-muted {
+        color: #6c757d !important;
+    }
+
+    .fas {
+        margin-right: 0.25rem;
+    }
+    
+    .card-body .text-success,
+    .card-body .text-danger {
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+</style>
+
+{% if current_user.is_admin %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Refresh button functionality
+    document.getElementById('refresh-log').addEventListener('click', function() {
+        location.reload();
+    });
+});
+</script>
+{% endif %}
+
+{% endblock content %}

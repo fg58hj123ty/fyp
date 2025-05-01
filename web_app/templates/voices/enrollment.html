@@ -1,0 +1,1427 @@
+{% extends "layout.html" %}
+{% block content %}
+<script src="https://unpkg.com/wavesurfer.js@7/dist/wavesurfer.min.js"></script>
+
+<div class="content-section">
+    <h2>Voice Enrollment</h2>
+    <p class="instruction-text">Please provide 3 different voice samples for better recognition accuracy.</p>
+
+    <!-- Enrollment Status Section -->
+    <div class="enrollment-status-container">
+        <p class="status-message" id="enrollment-status"
+        data-samples-count="{{ current_user.voice_profile.enrollment_samples_count|default(0) }}"
+        data-is-complete="{{ current_user.voice_profile.is_complete|default(False)|string|lower }}">
+            {% if current_user.voice_profile %}
+                {% if current_user.voice_profile.is_complete %}
+                    <div class="status-panel complete">
+                        <span class="status-icon">✅</span>
+                        <span class="status-title">Done!</span>
+                        <span class="status-text">Your voice profile is complete!</span>
+                        <span class="status-subtext">You can still update your samples if needed.</span>
+                    </div>
+                {% else %}
+                    {% set remaining = 3 - current_user.voice_profile.enrollment_samples_count|default(0) %}
+                    <div class="status-panel in-progress">
+                        <span class="status-icon">ℹ️</span>
+                        <span class="status-title">In Progress:</span>
+                        <span class="status-text">You need <span class="highlight">{{ remaining }} more sample(s)</span> to complete your voice profile.</span>
+                    </div>
+                {% endif %}
+            {% else %}
+                <div class="status-panel new">
+                    <span class="status-icon">🎤</span>
+                    <span class="status-title">Get Started:</span>
+                    <span class="status-text">You need <span class="highlight">3 more samples</span> to complete your voice profile.</span>
+                </div>
+            {% endif %}
+        </p>
+    </div>
+
+    <div id="voiceEnrollmentForm" data-csrf-token="{{ csrf_token() }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        {% for i in range(1, 4) %}
+        <div class="enrollment-section mb-4" data-section-number="{{ i }}">
+            <h3>Sample #{{ i }} - 
+                {% if i == 1 %}Please read the below sentence: 
+                {% elif i == 2 %}Please read the below numbers:
+                {% elif i == 3 %}Please read the below sentence:
+                {% endif %}
+            </h3>
+
+            <p class="sample-instruction">
+                {% if i == 1 %}
+                    "My voice is my password, please verify my identity"
+                {% elif i == 2 %}
+                    "one two three four five six seven eight nine zero"
+                {% else %}
+                    "The quick brown fox jumps over the lazy dog"
+                {% endif %}
+            </p>
+
+            <!-- Currently Assigned Sample -->
+            {% set current_sample = current_user.voice_profile.samples|selectattr('sample_number', 'equalto', i)|first %}
+            {% if current_sample %}
+                <div class="current-sample-info" data-sample-id="{{ current_sample.id }}">
+                    <div class="current-sample-details">
+                        <div class="sample-metadata">
+                            <span class="current-sample-title">Current Sample</span>
+                            <span class="upload-date">Uploaded: {{ current_sample.date_upload.strftime('%Y-%m-%d %H:%M') }}</span>
+                        </div>
+                        <div class="sample-controls">
+                            <button type="button" class="btn-play-current" 
+                                data-sample-number="{{ i }}"
+                                data-filepath="{{ current_sample.file_path }}">
+                                <span class="play-icon">▶</span> Play
+                            </button>
+                            <button type="button"
+                                    class="btn-delete" 
+                                    data-sample-number="{{ i }}"
+                                    data-sample-id="{{ current_sample.id }}"
+                                    data-csrf-token="{{ csrf_token() }}">
+                                <span>🗑️</span> Delete
+                            </button>
+                            <a href="{{ current_sample.file_path }}" 
+                            download="{{ current_sample.filename }}"
+                            class="btn-download"
+                            title="Download Sample">
+                                <span>⬇️</span> Download
+                            </a>
+                        </div>
+                    </div>
+                    <div class="waveform-container" data-sample-number="{{ i }}">
+
+                        <div class="waveform" id="waveform-current-{{ i }}"></div>
+                        <div class="wave-controls">
+                            <span class="wave-time">00:00 / 00:00</span>
+                        </div>
+                    </div>
+                </div>
+            {% else %}
+                <div class="input-options">
+                    <!-- Record Option -->
+                    <button type="button" class="option-btn record-option mb-2" 
+                        data-option="record{{ i }}"
+                        data-sample-number="{{ i }}">
+                        <span class="btn-icon">🎤</span> Record Directly
+                    </button>
+                    <div id="record{{ i }}" class="option-content record-content hidden"
+                        data-sample-number="{{ i }}">
+                        <div class="action-container">
+                            <div class="record-controls">
+                                <button type="button" class="record-btn" data-sample-number="{{ i }}">
+                                    <span class="record-icon">⬤</span>
+                                    Start Recording
+                                </button>
+                                <span class="record-time hidden">00:00</span>
+                            </div>
+                            <div class="button-group">
+                                <button type="button" class="play-btn" data-sample-number="{{ i }}" disabled>
+                                    <span class="icon">▶</span> Play
+                                </button>
+                                <button type="button" class="clear-btn" data-sample-number="{{ i }}" disabled>
+                                    <span class="icon">⌫</span> Clear
+                                </button>
+                                <button type="button" class="save-btn" data-sample-number="{{ i }}" disabled>
+                                    <span class="icon">💾</span> Save
+                                </button>
+                            </div>
+                        </div>
+                        <div class="audio-player">
+                            <div class="waveform-container" data-sample-number="{{ i }}">
+                                <div class="waveform" id="waveform{{ i }}"></div>
+                                    <span class="wave-time">00:00 / 00:00</span>
+                                    <br>
+                                <small class="text-muted">Minimum duration: {{min_record_duration}} seconds</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Upload Option -->
+                    <button type="button" class="option-btn upload-option" 
+                            data-option="upload{{ i }}"
+                            data-sample-number="{{ i }}">
+                        <span class="btn-icon">📁</span> Upload File
+                    </button>
+                    <div id="upload{{ i }}" class="option-content upload-content hidden" data-sample-number="{{ i }}">
+                        <div class="action-container">
+                            <div class="file-input">
+                                <input type="file" 
+                                       name="sample{{ i }}_upload" 
+                                       accept=".wav,.mp3,audio/wav,audio/mpeg,audio/x-wav,audio/x-mpeg" 
+                                       class="form-control" 
+                                       data-sample-number="{{ i }}">
+                                <small class="text-muted">Maximum file size: {{max_file_size}}MB</small>
+                                <br>
+                                <small class="text-muted">Allowed format: .wav, .mp3</small>
+                            </div>
+                            <div class="button-group">
+                                <button type="button" class="clear-btn" data-sample-number="{{ i }}">Clear</button>
+                                <button type="button" class="upload-btn" data-sample-number="{{ i }}">Upload</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<style>
+    /* Base Layout and Typography */
+    .content-section {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    h3 {
+        margin-bottom: 0.5rem;
+        color: #333;
+    }
+
+    .instruction-text {
+        margin-bottom: 1.5rem;
+        color: #666;
+        
+    }
+
+    .sample-instruction {
+        color: #666;
+        margin-bottom: 1rem;
+        font-style: italic;
+    }
+
+    /* Icons */
+    .icon {
+        display: inline-block;
+        margin-right: 6px;
+        font-size: 1.2em;
+        line-height: 1;
+        vertical-align: middle;
+    }
+
+    /* Status Panel */
+    .enrollment-status-container {
+        margin-bottom: 1.5rem;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    }
+
+    .status-panel {
+        padding: 1rem 1.25rem;
+        border-radius: 0.5rem;
+        margin: 0.5rem 0;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        transition: all 0.2s ease;
+    }
+
+    .status-panel:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+    }
+
+    .status-panel.complete {
+        background-color: #f0fdf4;
+        border-left: 4px solid #22c55e;
+        color: #15803d;
+    }
+
+    .status-panel.in-progress {
+        background-color: #eff6ff;
+        border-left: 4px solid #3b82f6;
+        color: #1d4ed8;
+    }
+
+    .status-panel.new {
+        background-color: #fefce8;
+        border-left: 4px solid #eab308;
+        color: #854d0e;
+    }
+
+    .status-message {
+        font-weight: 600;
+        font-size: 1.125rem;
+        margin-top: 0.5rem;
+    }
+
+    .status-icon {
+        font-size: 1.25rem;
+        margin-right: 0.5rem;
+        vertical-align: middle;
+    }
+
+    .status-title {
+        font-weight: 700;
+        margin-right: 0.5rem;
+    }
+
+    .status-text {
+        display: inline-block;
+        vertical-align: middle;
+    }
+
+    .status-subtext {
+        display: block;
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+        opacity: 0.9;
+    }
+
+    /* Enrollment Section */
+    .enrollment-section {
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 1.25rem;
+        background-color: #f9f9f9;
+        margin-bottom: 1.5rem;
+    }
+
+    /* Button Base Styles - Applied to all buttons */
+    .record-btn,
+    .play-btn,
+    .clear-btn,
+    .save-btn,
+    .upload-btn,
+    .btn-play-current,
+    .btn-delete,
+    .btn-download {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        font-weight: 500;
+        transition: all 0.2s ease;
+        color: white;
+    }
+
+    /* Button Colors */
+    .record-btn {
+        background-color: #dc2626;
+    }
+
+    .play-btn,
+    .btn-play-current {
+        background-color: #4F4A85;
+    }
+
+    .clear-btn,
+    .btn-delete {
+        background-color: #6b7280;
+    }
+
+    .save-btn,
+    .upload-btn,
+    .btn-download {
+        background-color: #059669;
+    }
+
+    /* Button Hover States */
+    .record-btn:hover:not(:disabled),
+    .play-btn:hover:not(:disabled),
+    .clear-btn:hover:not(:disabled),
+    .save-btn:hover:not(:disabled),
+    .upload-btn:hover:not(:disabled),
+    .btn-play-current:hover:not(:disabled),
+    .btn-delete:hover:not(:disabled),
+    .btn-download:hover:not(:disabled) {
+        transform: translateY(-1px);
+        opacity: 0.9;
+    }
+
+    /* Button States */
+    button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        pointer-events: none;
+    }
+
+    .record-btn.recording {
+        animation: blink 1s infinite;
+    }
+
+    /* Layout Components */
+    .action-container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .button-group {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+    }
+
+    .record-controls {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    /* Option Buttons */
+    .option-btn {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem;
+        border: 2px solid #ddd;
+        border-radius: 6px;
+        background-color: white;
+        cursor: pointer;
+        font-size: 1rem;
+        transition: all 0.2s ease;
+        width: 100%;
+    }
+
+    .option-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .record-option {
+        border-color: #dc2626;
+    }
+
+    .upload-option {
+        border-color: #059669;
+    }
+
+    /* Waveform Styles */
+    .waveform-container {
+        background: white;
+        padding: 1rem;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        margin-top: 1rem;
+    }
+
+    .waveform {
+        width: 100%;
+        height: 80px;
+        background: #f5f5f5;
+        border-radius: 4px;
+    }
+
+    .wave-time {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 0.9rem;
+        color: #666;
+        margin-top: 0.5rem;
+    }
+
+    /* Current Sample Styles */
+    .current-sample-info {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .current-sample-details {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+
+    .sample-metadata {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+
+    .current-sample-title {
+        font-weight: 600;
+        color: #333;
+    }
+
+    .upload-date {
+        font-size: 0.875rem;
+        color: #666;
+    }
+
+    /* Option Content */
+    .option-content {
+        background-color: white;
+        border-radius: 6px;
+        padding: 0.75rem;
+        margin-top: 0.25rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+    }
+
+    .option-content.hidden {
+        display: none;
+    }
+
+    /* Animations */
+    @keyframes blink {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+
+    /* Responsive Design */
+    @media (max-width: 768px) {
+        .content-section {
+            padding: 15px;
+        }
+
+        .action-container {
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .button-group {
+            width: 100%;
+            justify-content: space-between;
+        }
+
+        .current-sample-details {
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .sample-controls {
+            width: 100%;
+            justify-content: space-between;
+        }
+    }
+</style>
+
+
+<script>
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize state management
+        const VoiceEnrollment = {
+            // Core state management
+            state: {
+                mediaRecorders: {},
+                audioChunks: {},
+                timers: {},
+                recordingDurations: {},
+                wavesurfers: {},
+                completedSamples: new Set(),
+                activePlayback: null
+            },
+
+            // Configuration
+            config: {
+                minRecordDuration: 5,
+                maxFileSize: 16 * 1024 * 1024, // 16MB
+                validAudioTypes: ['audio/wav', 'audio/mpeg', 'audio/mp3', 'audio/webm','audio/x-wav', 'audio/x-mpeg', 'application/octet-stream'],
+                wavesurferOptions: {
+                    height: 80,
+                    waveColor: '#4F4A85',
+                    progressColor: '#383351',
+                    cursorColor: '#333',
+                    barWidth: 2,
+                    barGap: 1,
+                    responsive: true,
+                    normalize: true,
+                    interact: true
+                },
+                audioConstraints: {
+                    audio: {
+                        channelCount: 1,
+                        sampleRate: 16000,
+                        sampleSize: 16
+                    }
+                }
+            },
+
+            // Utility functions
+            utils: {
+                formatTime(seconds) {
+                    if (isNaN(seconds) || seconds === null) return "00:00";
+                    seconds = Math.round(seconds);
+                    const minutes = Math.floor(seconds / 60);
+                    const remainingSeconds = seconds % 60;
+                    return `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
+                },
+
+            async createAudioBlob(chunks) {
+                if (!chunks?.length) throw new Error('No audio data available');
+
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)({
+                    sampleRate: 16000
+                });
+
+                const rawBlob = new Blob(chunks, { type: 'audio/webm' });
+                const arrayBuffer = await rawBlob.arrayBuffer();
+                const audioData = await audioContext.decodeAudioData(arrayBuffer);
+                const outputLength = Math.round(audioData.duration * 16000);
+                
+                const offlineContext = new OfflineAudioContext(1, outputLength, 16000);
+                const source = offlineContext.createBufferSource();
+                source.buffer = audioData;
+                source.connect(offlineContext.destination);
+                source.start(0);
+                
+                const renderedBuffer = await offlineContext.startRendering();
+                return this.bufferToWav(renderedBuffer);
+            },
+
+            bufferToWav(audioBuffer) {
+                const numChannels = 1;
+                const sampleRate = 16000;
+                const bytesPerSample = 2;
+                const format = 1;
+                const length = audioBuffer.length * numChannels * bytesPerSample;
+                const arrayBuffer = new ArrayBuffer(44 + length);
+                const view = new DataView(arrayBuffer);
+
+                const writeString = (view, offset, string) => {
+                    for (let i = 0; i < string.length; i++) {
+                        view.setUint8(offset + i, string.charCodeAt(i));
+                    }
+                };
+
+                // Write WAV header
+                writeString(view, 0, 'RIFF');
+                view.setUint32(4, 36 + length, true);
+                writeString(view, 8, 'WAVE');
+                writeString(view, 12, 'fmt ');
+                view.setUint32(16, 16, true);
+                view.setUint16(20, format, true);
+                view.setUint16(22, numChannels, true);
+                view.setUint32(24, sampleRate, true);
+                view.setUint32(28, sampleRate * numChannels * bytesPerSample, true);
+                view.setUint16(32, numChannels * bytesPerSample, true);
+                view.setUint16(34, 8 * bytesPerSample, true);
+                writeString(view, 36, 'data');
+                view.setUint32(40, length, true);
+
+                // Write audio data
+                const channelData = audioBuffer.getChannelData(0);
+                let offset = 44;
+                for (let i = 0; i < channelData.length; i++) {
+                    const sample = Math.max(-1, Math.min(1, channelData[i]));
+                    view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+                    offset += 2;
+                }
+
+                return new Blob([arrayBuffer], { type: 'audio/wav' });
+            },
+
+            showMessage(message, type = 'info') {
+                // Implement your preferred message display system
+                alert(message);
+            },
+
+            getCSRFToken() {
+                return document.querySelector('input[name="csrf_token"]')?.value || '';
+            }
+        },
+
+            // Initialize the application
+            async init() {
+                try {
+                    this.initializeOptionButtons();
+                    this.initializeExistingSamples();
+                    this.initializeRecordingControls();
+                    this.initializeUploadControls();
+                    this.initializeSampleDeletion();
+                    console.log('Voice enrollment system initialized');
+                } catch (error) {
+                    console.error('Initialization error:', error);
+                    this.utils.showMessage('Error initializing voice enrollment system', 'error');
+                }
+            },
+
+            // Recording Management
+            async handleRecording(button, sampleNumber) {
+                const sectionId = `record${sampleNumber}`;
+                const section = document.querySelector(`#${sectionId}`);
+                const timeDisplay = section.querySelector('.record-time');
+
+                try {
+                    if (!this.state.mediaRecorders[sectionId]) {
+                        await this.startRecording(button, sectionId, section, timeDisplay);
+                    } else {
+                        await this.stopRecording(button, sectionId, section);
+                    }
+                } catch (error) {
+                    console.error('Recording error:', error);
+                    this.utils.showMessage('Error handling recording', 'error');
+                }
+            },
+
+            async startRecording(button, sectionId) {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia(this.config.audioConstraints);
+                    const section = document.getElementById(sectionId); 
+                
+                    const mediaRecorder = new MediaRecorder(stream, {
+                        mimeType: 'audio/webm;codecs=opus',
+                        audioBitsPerSecond: 16000 * 16
+                    });
+                    
+                    this.state.mediaRecorders[sectionId] = mediaRecorder;
+                    this.state.audioChunks[sectionId] = [];
+                    this.state.recordingDurations[sectionId] = 0;
+
+                    
+                    const allInteractiveElements = document.querySelectorAll(`
+                        .play-btn, 
+                        .btn-play-current, 
+                        .record-btn, 
+                        .clear-btn, 
+                        .save-btn, 
+                        .upload-btn, 
+                        .btn-delete, 
+                        .btn-download,
+                        .option-btn,
+                        a.btn-download
+                    `);
+                    
+                    // Disable all other interactive elements
+                    allInteractiveElements.forEach(element => {
+                        if (element !== button) {
+                            if (element.tagName === 'A') {
+                                element.style.pointerEvents = 'none';
+                                element.classList.add('disabled');
+                            } else {
+                                element.disabled = true;
+                            }
+                        }
+                    });
+
+
+                    mediaRecorder.addEventListener('dataavailable', event => {
+                        if (event.data.size > 0) {
+                            this.state.audioChunks[sectionId].push(event.data);
+                        }
+                    });
+
+                    mediaRecorder.addEventListener('stop', () => {
+                        this.handleRecordingStop(sectionId);
+                        
+                        // Re-enable buttons after recording stops
+                        allButtons.forEach(btn => {
+                            if (btn !== button) {
+                                // Don't enable play/save/clear buttons if there's no recording
+                                if (!this.state.audioChunks[sectionId]?.length && 
+                                    (btn.classList.contains('play-btn') || 
+                                    btn.classList.contains('save-btn') || 
+                                    btn.classList.contains('clear-btn'))) {
+                                    btn.disabled = true;
+                                } else {
+                                    btn.disabled = false;
+                                }
+                            }
+                        });
+                    });
+
+                    mediaRecorder.start(1000);
+                    this.state.isRecording = true;
+
+                    // Update UI for recording state
+                    const timeDisplay = section.querySelector('.record-time');
+                    if (timeDisplay) {
+                        timeDisplay.classList.remove('hidden');
+                        timeDisplay.textContent = '00:00';
+                    }
+                    
+                    this.startRecordingTimer(sectionId, timeDisplay);
+
+                } catch (error) {
+                    console.error('Error starting recording:', error);
+                    throw new Error('Could not access microphone. Please ensure microphone permissions are granted.');
+                }
+            },
+
+            updateRecordingUI(button, timeDisplay, isRecording) {
+                button.innerHTML = `<span class="record-icon">⬤</span> ${isRecording ? 'Stop' : 'Start'} Recording`;
+                button.classList.toggle('recording', isRecording);
+                if (timeDisplay) {
+                    timeDisplay.classList.toggle('hidden', !isRecording);
+                    if (isRecording) timeDisplay.textContent = '00:00';
+                }
+            },
+
+            startRecordingTimer(sectionId, display) {
+                if (this.state.timers[sectionId]) {
+                    clearInterval(this.state.timers[sectionId]);
+                }
+
+                const startTime = Date.now();
+                this.state.recordingDurations[sectionId] = 0;
+
+                this.state.timers[sectionId] = setInterval(() => {
+                    if (this.state.mediaRecorders[sectionId]?.state === 'recording') {
+                        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                        this.state.recordingDurations[sectionId] = elapsed;
+                        if (display) display.textContent = this.utils.formatTime(elapsed);
+                    }
+                }, 100);
+            },
+
+            async stopRecording(sectionId) {
+                if (this.state.mediaRecorders[sectionId]?.state === 'recording') {
+                    this.state.mediaRecorders[sectionId].stop();
+                    this.state.mediaRecorders[sectionId].stream.getTracks().forEach(track => track.stop());
+                    
+                    // Clear the timer
+                    if (this.state.timers[sectionId]) {
+                        clearInterval(this.state.timers[sectionId]);
+                        delete this.state.timers[sectionId];
+                    }
+                    
+                    this.state.mediaRecorders[sectionId] = null;
+                    this.state.isRecording = false;
+                }
+            },
+
+            // Waveform Management
+            async handleRecordingStop(sectionId) {
+                const sampleNumber = sectionId.replace('record', '');
+                const section = document.getElementById(sectionId);
+                const wavesurferId = `waveform${sampleNumber}`;
+                const container = document.getElementById(wavesurferId);
+
+                if (!container || !this.state.audioChunks[sectionId]?.length) return;
+
+                try {
+                    // Clean up existing wavesurfer
+                    if (this.state.wavesurfers[wavesurferId]) {
+                        this.state.wavesurfers[wavesurferId].destroy();
+                        delete this.state.wavesurfers[wavesurferId];
+                    }
+
+                    // Create new wavesurfer instance
+                    const wavesurfer = this.createWavesurfer(container);
+                    this.state.wavesurfers[wavesurferId] = wavesurfer;
+
+                    // Setup playback controls
+                    const timeDisplay = section.querySelector('.wave-time');
+                    const playBtn = section.querySelector('.play-btn');
+
+                    this.setupWaveformEvents(wavesurfer, playBtn, timeDisplay, sectionId);
+
+                    // Create blob and load it
+                    const audioBlob = await this.utils.createAudioBlob(this.state.audioChunks[sectionId]);
+                    await wavesurfer.loadBlob(audioBlob);
+
+                    // Enable controls after successful load
+                    this.enableControlsAfterRecording(section);
+
+                } catch (error) {
+                    console.error('Error handling recording stop:', error);
+                    this.utils.showMessage('Error loading recorded audio', 'error');
+                    
+                    // Clean up on error
+                    if (this.state.wavesurfers[wavesurferId]) {
+                        this.state.wavesurfers[wavesurferId].destroy();
+                        delete this.state.wavesurfers[wavesurferId];
+                    }
+                }
+            },
+
+
+            createWavesurfer(container) {
+                const wavesurfer = WaveSurfer.create({
+                    ...this.config.wavesurferOptions,
+                    container: container,
+                    height: 80,
+                    waveColor: '#4F4A85',
+                    progressColor: '#383351',
+                    cursorColor: '#4F4A85',
+                    barWidth: 2,
+                    barGap: 1,
+                    responsive: true,
+                    normalize: true,
+                    interact: true,
+                    barRadius: 3,
+                    cursorWidth: 1,
+                    backend: 'MediaElement'
+                });
+
+                return wavesurfer;
+            },
+
+            createPlayButton(sampleNumber) {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'wave-play-btn';
+                btn.innerHTML = '<span class="play-icon">▶</span>';
+                btn.dataset.sampleNumber = sampleNumber;
+                return btn;
+            },
+
+            setupWaveformEvents(wavesurfer, playBtn, timeDisplay, sectionId) {
+                const updateTimeDisplay = () => {
+                    if (timeDisplay && wavesurfer) {
+                        const current = Math.round(wavesurfer.getCurrentTime());
+                        const duration = Math.round(wavesurfer.getDuration());
+                        timeDisplay.textContent = `${this.utils.formatTime(current)} / ${this.utils.formatTime(duration)}`;
+                    }
+                };
+
+                const allPlayButtons = document.querySelectorAll('.play-btn, .btn-play-current');
+                const allActionButtons = document.querySelectorAll('.record-btn, .clear-btn, .save-btn, .upload-btn, .btn-delete, .btn-download');
+
+                wavesurfer.on('ready', () => {
+                    playBtn.disabled = false;
+                    updateTimeDisplay();
+                });
+
+                wavesurfer.on('play', () => {
+                    playBtn.innerHTML = '<span class="icon">⏸</span> Pause';
+                    // Disable other buttons during playback
+                    allPlayButtons.forEach(btn => {
+                        if (btn !== playBtn) btn.disabled = true;
+                    });
+                    allActionButtons.forEach(btn => btn.disabled = true);
+                });
+
+                wavesurfer.on('pause', () => {
+                    playBtn.innerHTML = '<span class="icon">▶</span> Play';
+                    // Enable all buttons when paused
+                    allPlayButtons.forEach(btn => {
+                        if (btn !== playBtn) btn.disabled = false;
+                    });
+                    allActionButtons.forEach(btn => btn.disabled = false);
+                });
+
+                wavesurfer.on('finish', () => {
+                    playBtn.innerHTML = '<span class="icon">▶</span> Play';
+                    // Enable all buttons when finished
+                    allPlayButtons.forEach(btn => {
+                        if (btn !== playBtn) btn.disabled = false;
+                    });
+                    allActionButtons.forEach(btn => btn.disabled = false);
+                });
+
+                wavesurfer.on('audioprocess', updateTimeDisplay);
+                wavesurfer.on('seek', updateTimeDisplay);
+
+                playBtn.addEventListener('click', async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    await this.togglePlayback(wavesurfer, playBtn, sectionId);
+                });
+            },
+
+            setupPlaybackEvents(wavesurfer, playBtn, updateTimeDisplay) {
+                wavesurfer.on('play', () => {
+                    playBtn.innerHTML = '<span class="play-icon">⏸</span>';
+                    
+                    // Stop other playing audio if any
+                    Object.values(this.state.wavesurfers).forEach(ws => {
+                        if (ws !== wavesurfer && ws.isPlaying()) {
+                            ws.pause();
+                            const otherPlayBtn = document.querySelector(`[data-wave-id="${ws.container.id}"]`);
+                            if (otherPlayBtn) {
+                                otherPlayBtn.innerHTML = '<span class="play-icon">▶</span>';
+                            }
+                        }
+                    });
+                });
+
+                wavesurfer.on('pause', () => {
+                    playBtn.innerHTML = '<span class="play-icon">▶</span>';
+                });
+
+                wavesurfer.on('finish', () => {
+                    playBtn.innerHTML = '<span class="play-icon">▶</span>';
+                });
+
+                wavesurfer.on('audioprocess', updateTimeDisplay);
+                wavesurfer.on('seek', updateTimeDisplay);
+            },
+
+            // Sample Upload and File Handling
+            async handleFileUpload(sampleNumber, fileInput) {
+                const file = fileInput.files[0];
+                if (!file) {
+                    this.utils.showMessage('Please select a file first');
+                    return;
+                }
+
+                try {
+                    if (!this.config.validAudioTypes.includes(file.type)) {
+                        throw new Error('Invalid file type. Please upload a WAV or MP3 file.');
+                    }
+
+                    // Show loading state
+                    const uploadBtn = fileInput.closest('.action-container').querySelector('.upload-btn');
+                    const originalBtnText = uploadBtn.innerHTML;
+                    uploadBtn.innerHTML = '<span>⏳</span> Uploading...';
+                    uploadBtn.disabled = true;
+
+                    const formData = new FormData();
+                    formData.append('voice_file', file);
+                    formData.append('sample_number', sampleNumber);
+                    formData.append('csrf_token', this.utils.getCSRFToken());
+
+                    const response = await fetch('/enroll', {
+                        method: 'POST',
+                        body: formData,
+                        credentials: 'same-origin'
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || 'Upload failed');
+                    }
+
+                    const result = await response.json();
+                    if (result.success) {
+                        this.utils.showMessage('Sample uploaded successfully');
+                        window.location.reload();
+                    } else {
+                        throw new Error(result.error || 'Upload failed');
+                    }
+
+                } catch (error) {
+                    console.error('Upload error:', error);
+                    this.utils.showMessage(error.message);
+                    fileInput.value = '';
+                    const uploadBtn = fileInput.closest('.action-container').querySelector('.upload-btn');
+                    uploadBtn.disabled = true;
+                } finally {
+                    // Reset upload button state
+                    const uploadBtn = fileInput.closest('.action-container').querySelector('.upload-btn');
+                    if (uploadBtn) {
+                        uploadBtn.innerHTML = originalBtnText || 'Upload';
+                    }
+                }
+            },
+
+            async handleSampleDeletion(button) {
+                // Add confirmation dialog
+                if (!confirm('Are you sure you want to delete this voice sample? ')) {
+                    return; // If user clicks Cancel, stop here
+                }
+
+                const sampleId = button.dataset.sampleId;
+                try {
+                    // Show loading state on button
+                    const originalButtonContent = button.innerHTML;
+                    button.innerHTML = '<span>⏳</span> Deleting...';
+                    button.disabled = true;
+
+                    const response = await fetch('/delete_sample', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': button.dataset.csrfToken
+                        },
+                        body: JSON.stringify({ sample_id: sampleId }),
+                        credentials: 'same-origin'
+                    });
+
+                    // Reset button state
+                    button.innerHTML = originalButtonContent;
+                    button.disabled = false;
+
+                    if (!response.ok) {
+                        if (response.status === 404) {
+                            throw new Error('Delete endpoint not found. Please check the URL.');
+                        }
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || 'Deletion failed');
+                    }
+
+                    const result = await response.json();
+                    if (result.success) {
+                        // Remove the sample container from the DOM
+                        const sampleContainer = button.closest('.current-sample-info');
+                        if (sampleContainer) {
+                            sampleContainer.remove();
+                        }
+                        
+                        // Show success message
+                        alert('Voice sample deleted successfully');
+                        
+                        // Reload the page to update the UI state
+                        window.location.reload();
+                    } else {
+                        throw new Error(result.message || 'Deletion failed');
+                    }
+
+                } catch (error) {
+                    console.error('Deletion error:', error);
+                    alert(`Failed to delete sample: ${error.message}`);
+                    
+                    // Reset button state in case of error
+                    button.innerHTML = originalButtonContent;
+                    button.disabled = false;
+                }
+            },
+
+            // UI Control Management
+            disableControlsDuringRecording(section, isRecording) {
+                const buttons = section.querySelectorAll('button:not(.record-btn)');
+                buttons.forEach(btn => btn.disabled = isRecording);
+            },
+
+            enableControlsAfterRecording(section) {
+                const saveBtn = section.querySelector('.save-btn');
+                const clearBtn = section.querySelector('.clear-btn');
+                const playBtn = section.querySelector('.play-btn');
+                
+                if (saveBtn) saveBtn.disabled = false;
+                if (clearBtn) clearBtn.disabled = false;
+                if (playBtn) playBtn.disabled = false;
+            },
+
+            async togglePlayback(wavesurfer, playBtn, sectionId) {
+                if (this.state.activePlayback && this.state.activePlayback !== wavesurfer) {
+                    this.state.activePlayback.pause();
+                }
+
+                const allPlayButtons = document.querySelectorAll('.play-btn, .btn-play-current');
+                const allActionButtons = document.querySelectorAll('.record-btn, .clear-btn, .save-btn, .upload-btn, .btn-delete, .btn-download');
+                
+                if (wavesurfer.isPlaying()) {
+                    wavesurfer.pause();
+                    playBtn.innerHTML = '<span class="icon">▶</span> Play';
+                    // Enable all buttons when paused
+                    allPlayButtons.forEach(btn => {
+                        if (btn !== playBtn) btn.disabled = false;
+                    });
+                    allActionButtons.forEach(btn => btn.disabled = false);
+                } else {
+                    wavesurfer.play();
+                    playBtn.innerHTML = '<span class="icon">⏸</span> Pause';
+                    this.state.activePlayback = wavesurfer;
+                    // Disable other buttons during playback
+                    allPlayButtons.forEach(btn => {
+                        if (btn !== playBtn) btn.disabled = true;
+                    });
+                    allActionButtons.forEach(btn => btn.disabled = true);
+                }
+            },
+
+            // Event Initialization
+            initializeOptionButtons() {
+                document.querySelectorAll('.option-btn').forEach(button => {
+                    button.addEventListener('click', () => {
+                        const contentId = button.dataset.option;
+                        const content = document.getElementById(contentId);
+                        
+                        // Close other open sections
+                        document.querySelectorAll('.option-content').forEach(section => {
+                            if (section.id !== contentId) {
+                                section.classList.add('hidden');
+                            }
+                        });
+
+                        content.classList.toggle('hidden');
+                    });
+                });
+            },
+
+            initializeRecordingControls() {
+                // For each record button in the document
+                document.querySelectorAll('.record-btn').forEach(button => {
+                    const sampleNumber = button.dataset.sampleNumber;
+                    const sectionId = `record${sampleNumber}`;
+                    const section = document.getElementById(sectionId);
+                    const recordBtn = button;
+                    const clearBtn = section.querySelector('.clear-btn');
+                    const saveBtn = section.querySelector('.save-btn');
+                    const playBtn = section.querySelector('.play-btn');
+
+                    // Get all interactive buttons
+                    const allButtons = document.querySelectorAll('.play-btn, .btn-play-current, .record-btn, .clear-btn, .save-btn, .upload-btn, .btn-delete, .btn-download, .option-btn');
+
+                    // Record button handler
+                    recordBtn.addEventListener('click', async () => {
+                        try {
+                            if (this.state.isRecording) {
+                                // Stop recording
+                                await this.stopRecording(sectionId);
+                                recordBtn.innerHTML = '<span class="icon">⏺</span> Record';
+                                recordBtn.classList.remove('recording');
+                                clearBtn.disabled = false;
+                                saveBtn.disabled = false;
+                                playBtn.disabled = false;
+                                
+                                // Re-enable other buttons
+                                allButtons.forEach(btn => {
+                                    if (btn !== recordBtn) {
+                                        btn.disabled = false;
+                                    }
+                                });
+                            } else {
+                                // Start recording
+                                await this.startRecording(recordBtn, sectionId);
+                                recordBtn.innerHTML = '<span class="icon">⏹</span> Stop';
+                                recordBtn.classList.add('recording');
+                                clearBtn.disabled = true;
+                                saveBtn.disabled = true;
+                                playBtn.disabled = true;
+                                
+                                // Disable all other buttons during recording
+                                allButtons.forEach(btn => {
+                                    if (btn !== recordBtn) {
+                                        btn.disabled = true;
+                                    }
+                                });
+                            }
+                        } catch (error) {
+                            console.error('Recording error:', error);
+                            alert('Error with recording: ' + error.message);
+                        }
+                    });
+
+                    // Clear button handler
+                    clearBtn.addEventListener('click', () => {
+                        if (section) {
+                            // Stop any ongoing recording
+                            if (this.state.mediaRecorders[sectionId]?.state === 'recording') {
+                                this.stopRecording(sectionId);
+                            }
+
+                            // Stop and destroy wavesurfer instance
+                            const wavesurferId = `waveform${sampleNumber}`;
+                            if (this.state.wavesurfers[wavesurferId]) {
+                                this.state.wavesurfers[wavesurferId].pause();
+                                this.state.wavesurfers[wavesurferId].destroy();
+                                delete this.state.wavesurfers[wavesurferId];
+                            }
+
+                            // Clear recorded data
+                            delete this.state.audioChunks[sectionId];
+                            delete this.state.recordingDurations[sectionId];
+
+                            // Reset UI elements
+                            const waveformContainer = section.querySelector('.waveform');
+                            if (waveformContainer) {
+                                // Clear the container
+                                waveformContainer.innerHTML = '';
+                                // Create a new div for the waveform
+                                const newWaveformDiv = document.createElement('div');
+                                newWaveformDiv.id = wavesurferId;
+                                waveformContainer.appendChild(newWaveformDiv);
+                            }
+
+                            const timeDisplay = section.querySelector('.wave-time');
+                            if (timeDisplay) {
+                                timeDisplay.textContent = '00:00 / 00:00';
+                            }
+
+                            const recordTimeDisplay = section.querySelector('.record-time');
+                            if (recordTimeDisplay) {
+                                recordTimeDisplay.textContent = '00:00';
+                                recordTimeDisplay.classList.add('hidden');
+                            }
+
+                            // Reset buttons
+                            recordBtn.innerHTML = '<span class="icon">⏺</span> Record';
+                            recordBtn.classList.remove('recording');
+                            playBtn.innerHTML = '<span class="icon">▶</span> Play';
+                            playBtn.disabled = true;
+                            clearBtn.disabled = true;
+                            saveBtn.disabled = true;
+
+                            // Reset recording state
+                            this.state.isRecording = false;
+                        }
+                    });
+
+                    // Save button handler
+                    saveBtn.addEventListener('click', async () => {
+                        if (!this.state.audioChunks[sectionId]?.length) {
+                            this.utils.showMessage('No recording to save');
+                            return;
+                        }
+
+                        try {
+                            // Disable save button during upload
+                            saveBtn.disabled = true;
+                            saveBtn.innerHTML = '<span>⏳</span> Saving...';
+
+                            // Create audio blob
+                            const audioBlob = await this.utils.createAudioBlob(this.state.audioChunks[sectionId]);
+
+                            // Create form data
+                            const formData = new FormData();
+                            formData.append('voice_file', audioBlob, 'recording.wav');
+                            formData.append('sample_number', sampleNumber);
+                            formData.append('csrf_token', this.utils.getCSRFToken());
+
+                            // Send to server
+                            const response = await fetch('/enroll', {
+                                method: 'POST',
+                                body: formData,
+                                credentials: 'same-origin'
+                            });
+
+                            if (!response.ok) {
+                                const errorData = await response.json();
+                                throw new Error(errorData.error || 'Save failed');
+                            }
+
+                            const result = await response.json();
+                            if (result.success) {
+                                this.utils.showMessage('Recording saved successfully');
+                                window.location.reload();
+                            } else {
+                                throw new Error(result.error || 'Save failed');
+                            }
+
+                        } catch (error) {
+                            console.error('Save error:', error);
+                            this.utils.showMessage(error.message);
+                            // Reset save button
+                            saveBtn.disabled = false;
+                            saveBtn.innerHTML = '<span class="icon">💾</span> Save';
+                        }
+                    });
+                });
+            },
+
+            // Initialize Upload Controls
+            initializeUploadControls() {
+                // Handle file selection
+                document.querySelectorAll('input[type="file"]').forEach(input => {
+                    input.addEventListener('change', () => {
+                        const container = input.closest('.action-container');
+                        const uploadBtn = container.querySelector('.upload-btn');
+                        
+                        if (input.files.length > 0) {
+                            uploadBtn.disabled = false;
+                        } else {
+                            uploadBtn.disabled = true;
+                        }
+                    });
+                });
+
+                // Handle upload button clicks
+                document.querySelectorAll('.upload-btn').forEach(button => {
+                    button.addEventListener('click', () => {
+                        const container = button.closest('.action-container');
+                        const input = container.querySelector('input[type="file"]');
+                        const sampleNumber = button.dataset.sampleNumber;
+                        
+                        if (input.files.length > 0) {
+                            this.handleFileUpload(sampleNumber, input);
+                        }
+                    });
+                });
+
+                // Handle clear button clicks in upload sections
+                document.querySelectorAll('.upload-content .clear-btn').forEach(button => {
+                    button.addEventListener('click', () => {
+                        const container = button.closest('.action-container');
+                        if (container) {
+                            const input = container.querySelector('input[type="file"]');
+                            const uploadBtn = container.querySelector('.upload-btn');
+                            
+                            if (input) {
+                                input.value = '';
+                            }
+                            if (uploadBtn) {
+                                uploadBtn.disabled = true;
+                            }
+                        }
+                    });
+                });
+            },
+
+            initializeExistingSamples() {
+                document.querySelectorAll('.current-sample-info').forEach(container => {
+                    const playButton = container.querySelector('.btn-play-current');
+                    if (!playButton) return;
+
+                    const sampleNumber = playButton.dataset.sampleNumber;
+                    const audioUrl = '/audio/' + playButton.dataset.filepath;
+                    const wavesurferId = `waveform-current-${sampleNumber}`;
+                    const waveformContainer = document.getElementById(wavesurferId);
+                    const timeDisplay = container.querySelector('.wave-time');
+
+                    if (waveformContainer && audioUrl) {
+                        const wavesurfer = this.createWavesurfer(waveformContainer);
+                        this.state.wavesurfers[wavesurferId] = wavesurfer;
+
+                        const allPlayButtons = document.querySelectorAll('.play-btn, .btn-play-current');
+                        const allActionButtons = document.querySelectorAll('.record-btn, .clear-btn, .save-btn, .upload-btn, .btn-delete, .btn-download');
+
+                        wavesurfer.on('ready', () => {
+                            if (timeDisplay) {
+                                timeDisplay.textContent = `00:00 / ${this.utils.formatTime(wavesurfer.getDuration())}`;
+                            }
+                        });
+
+                        wavesurfer.on('audioprocess', () => {
+                            if (timeDisplay) {
+                                const currentTime = this.utils.formatTime(wavesurfer.getCurrentTime());
+                                const totalTime = this.utils.formatTime(wavesurfer.getDuration());
+                                timeDisplay.textContent = `${currentTime} / ${totalTime}`;
+                            }
+                        });
+
+                        wavesurfer.on('play', () => {
+                            playButton.innerHTML = '<span class="icon">⏸</span> Pause';
+                            // Disable other buttons during playback
+                            allPlayButtons.forEach(btn => {
+                                if (btn !== playButton) btn.disabled = true;
+                            });
+                            allActionButtons.forEach(btn => btn.disabled = true);
+                        });
+
+                        wavesurfer.on('pause', () => {
+                            playButton.innerHTML = '<span class="icon">▶</span> Play';
+                            // Enable all buttons when paused
+                            allPlayButtons.forEach(btn => {
+                                if (btn !== playButton) btn.disabled = false;
+                            });
+                            allActionButtons.forEach(btn => btn.disabled = false);
+                        });
+
+                        wavesurfer.on('finish', () => {
+                            playButton.innerHTML = '<span class="icon">▶</span> Play';
+                            // Enable all buttons when finished
+                            allPlayButtons.forEach(btn => {
+                                if (btn !== playButton) btn.disabled = false;
+                            });
+                            allActionButtons.forEach(btn => btn.disabled = false);
+                        });
+
+                        playButton.addEventListener('click', () => {
+                            if (wavesurfer.isPlaying()) {
+                                wavesurfer.pause();
+                            } else {
+                                // Stop other playing audio if any
+                                Object.values(this.state.wavesurfers).forEach(ws => {
+                                    if (ws !== wavesurfer && ws.isPlaying()) {
+                                        ws.pause();
+                                    }
+                                });
+                                wavesurfer.play();
+                            }
+                        });
+
+                        // Load the audio
+                        wavesurfer.load(audioUrl);
+                        wavesurfer.sampleNumber = sampleNumber;
+                    }
+                });
+            },
+
+            initializeSampleDeletion() {
+                document.querySelectorAll('.btn-delete').forEach(button => {
+                    button.addEventListener('click', () => this.handleSampleDeletion(button));
+                });
+            }
+        };
+
+            // Initialize the application
+            VoiceEnrollment.init().catch(error => {
+                console.error('Application initialization error:', error);
+            });
+        });
+
+
+    </script>
+{% endblock content %}

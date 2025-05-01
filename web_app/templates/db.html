@@ -1,0 +1,328 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="content-section">
+    {% if current_user.is_admin %}
+        <h2>Admin Database View</h2>
+    {% else %}
+        <h2>My Data</h2>
+    {% endif %}
+    
+    
+    <table class="table">
+        <thead>
+            <tr>
+                <th class="col-id">ID</th>
+                <th class="col-username">Username</th>
+                <th class="col-email">Email</th>
+                <th class="col-alias">Alias</th>
+                <th class="col-admin">Status</th>
+                <th class="col-access">Access Code</th>
+                <th class="col-image">Image</th>
+                <th class="col-date">Join Date</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% if current_user.is_admin %}
+                {% for user in data.users %}
+                <tr>
+                    <td>{{ user.id }}</td>
+                    <td class="monospace-cell">{{ user.username }}</td>
+                    <td class="monospace-cell">{{ user.email }}</td>
+                    <td class="monospace-cell">{{ user.alias or 'N/A' }}</td>
+                    <td class="status-cell {{ 'complete' if user.is_admin else 'incomplete' }}">
+                        {{ "Admin" if user.is_admin else "User" }}
+                    </td>
+                    <td class="monospace-cell">{{ user.access_code or 'N/A' }}</td>
+                    <td class="path-cell">
+                        <div class="path-wrapper">{{ user.image_file }}</div>
+                    </td>
+                    <td class="monospace-cell">{{ user.date_join }}</td>
+                </tr>
+                {% endfor %}
+            {% else %}
+                {% for user in data.users %}
+                    {% if user.id == current_user.id %}
+                    <tr>
+                        <td>{{ user.id }}</td>
+                        <td class="monospace-cell">{{ user.username }}</td>
+                        <td class="monospace-cell">{{ user.email }}</td>
+                        <td class="monospace-cell">{{ user.alias or 'N/A' }}</td>
+                        <td class="status-cell {{ 'complete' if user.is_admin else 'incomplete' }}">
+                            {{ "Admin" if user.is_admin else "User" }}
+                        </td>
+                        <td class="monospace-cell">{{ user.access_code or 'N/A' }}</td>
+                        <td class="path-cell">
+                            <div class="path-wrapper">{{ user.image_file }}</div>
+                        </td>
+                        <td class="monospace-cell">{{ user.date_join }}</td>
+                    </tr>
+                    {% endif %}
+                {% endfor %}
+            {% endif %}
+        </tbody>
+    </table>
+
+    <h3>Voice Profile</h3>
+    <table class="table">
+        <thead>
+            <tr>
+                <th class="col-id">ID</th>
+                <th class="col-id">User ID</th>
+                <th class="col-username">Username</th>
+                <th class="col-samples">Enrollment</th>
+                <th class="col-status">Status</th>
+                <th class="col-threshold">Threshold</th>
+                <th class="col-date">Created</th>
+                <th class="col-date">Updated</th>
+                <th class="col-embedding">Profile Embedding</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% if current_user.is_admin %}
+                {% for profile in data.profiles %}
+                <tr>
+                    <td>{{ profile.id }}</td>
+                    <td>{{ profile.user_id }}</td>
+                    <td class="monospace-cell">{{ profile.username }}</td>
+                    <td class="monospace-cell">{{ profile.enrollment_samples_count }}/3</td>
+                    <td class="status-cell {{ 'complete' if profile.is_complete else 'incomplete' }}">
+                        {{ "Complete" if profile.is_complete else "Incomplete" }}
+                    </td>
+                    <td class="monospace-cell">{{ "%.2f"|format(profile.verification_threshold) }}</td>
+                    <td class="monospace-cell">{{ profile.date_create }}</td>
+                    <td class="monospace-cell">{{ profile.last_update }}</td>
+                    <td class="path-cell">
+                        {% if profile.embedding is not none %}
+                            <span class="badge bg-success">Present</span>
+                        {% else %}
+                            <span class="badge bg-secondary">Not Set</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            {% else %}
+                {% for profile in data.profiles %}
+                    {% if profile.user_id == current_user.id %}
+                    <tr>
+                        <td>{{ profile.id }}</td>
+                        <td>{{ profile.user_id }}</td>
+                        <td class="monospace-cell">{{ profile.username }}</td>
+                        <td class="monospace-cell">{{ profile.enrollment_samples_count }}/3</td>
+                        <td class="status-cell {{ 'complete' if profile.is_complete else 'incomplete' }}">
+                            {{ "Complete" if profile.is_complete else "Incomplete" }}
+                        </td>
+                        <td class="monospace-cell">{{ "%.2f"|format(profile.verification_threshold) }}</td>
+                        <td class="monospace-cell">{{ profile.date_create }}</td>
+                        <td class="monospace-cell">{{ profile.last_update }}</td>
+                        <td class="path-cell">
+                            {% if profile.embedding is not none %}
+                                <span class="badge bg-success">Present</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Not Set</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endif %}
+                {% endfor %}
+            {% endif %}
+        </tbody>
+    </table>
+
+    <h3>Voice Samples</h3>
+    <table class="table">
+        <thead>
+            <tr>
+                <th class="col-id">ID</th>
+                <th class="col-id">Profile ID</th>
+                <th class="col-username">Username</th>
+                <th class="col-filename">Filename</th>
+                <th class="col-type">Type</th>
+                <th class="col-number">Sample #</th>
+                <th class="col-metadata">Metadata</th>
+                <th class="col-date">Upload Date</th>
+                <!-- <th class="col-actions">Actions</th> -->
+            </tr>
+        </thead>
+        <tbody>
+            {% if current_user.is_admin %}
+                {% for voice in data.voices %}
+                <tr>
+                    <td>{{ voice.id }}</td>
+                    <td>{{ voice.profile_id }}</td>
+                    <td class="monospace-cell">{{ voice.username }}</td>
+                    <td class="path-cell">
+                        <div class="path-wrapper">{{ voice.filename }}</div>
+                    </td>
+                    <td class="type-cell {{ voice.sample_type }}">{{ voice.sample_type }}</td>
+                    <td class="monospace-cell">{{ voice.sample_number }}</td>
+                    <td class="metadata-cell">
+                        <small>
+                            Duration: {{ "%.1f"|format(voice.sample_duration or 0) }}s<br>
+                            Size: {{ voice.sample_size|default('N/A') }}<br>
+                            Format: {{ voice.sample_format|default('N/A') }}<br>
+                            Quality: {{ "%.2f"|format(voice.sample_quality_score) if voice.sample_quality_score else 'N/A' }}
+                        </small>
+                    </td>
+                    <td class="monospace-cell">{{ voice.date_upload }}</td>
+                    <!-- <td class="actions-cell">
+                        <button class="btn btn-sm btn-primary play-audio" data-path="{{ voice.file_path }}">
+                            <i class="fas fa-play"></i>
+                        </button>
+                    </td> -->
+                </tr>
+                {% endfor %}
+            {% else %}
+                {% for voice in data.voices %}
+                    {% if voice.username == current_user.username %}
+                    <tr>
+                        <td>{{ voice.id }}</td>
+                        <td>{{ voice.profile_id }}</td>
+                        <td class="monospace-cell">{{ voice.username }}</td>
+                        <td class="path-cell">
+                            <div class="path-wrapper">{{ voice.filename }}</div>
+                        </td>
+                        <td class="type-cell {{ voice.sample_type }}">{{ voice.sample_type }}</td>
+                        <td class="monospace-cell">{{ voice.sample_number }}</td>
+                        <td class="metadata-cell">
+                            <small>
+                                Duration: {{ "%.1f"|format(voice.sample_duration or 0) }}s<br>
+                                Size: {{ voice.sample_size|default('N/A') }}<br>
+                                Format: {{ voice.sample_format|default('N/A') }}<br>
+                                Quality: {{ "%.2f"|format(voice.sample_quality_score) if voice.sample_quality_score else 'N/A' }}
+                            </small>
+                        </td>
+                        <td class="monospace-cell">{{ voice.date_upload }}</td>
+                        <!-- <td class="actions-cell">
+                            <button class="btn btn-sm btn-primary play-audio" data-path="{{ voice.file_path }}">
+                                <i class="fas fa-play"></i>
+                            </button>
+                        </td> -->
+                    </tr>
+                    {% endif %}
+                {% endfor %}
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+
+    <style>
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 0.9rem;
+        }
+        
+        .table th, .table td {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            text-align: left;
+            vertical-align: middle;
+        }
+        
+        .table th {
+            background-color: #f5f5f5;
+            font-weight: bold;
+        }
+        
+        .table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+
+        /* Column widths */
+        .col-id { width: 60px; }
+        .col-username { width: 120px; }
+        .col-email { width: 200px; }
+        .col-alias { width: 120px; }
+        .col-admin { width: 100px; }
+        .col-access { width: 100px; }
+        .col-image { width: 150px; }
+        .col-date { width: 150px; }
+        .col-actions { width: 100px; }
+        .col-samples { width: 100px; }
+        .col-status { width: 100px; }
+        .col-threshold { width: 100px; }
+        .col-type { width: 100px; }
+        .col-number { width: 80px; }
+        .col-metadata { width: 150px; }
+
+        /* Status styling */
+        .status-cell {
+            font-weight: bold;
+        }
+        .status-cell.complete { color: #28a745; }
+        .status-cell.incomplete { color: #dc3545; }
+
+        /* Type styling */
+        .type-cell {
+            font-weight: 500;
+        }
+        .type-cell.enrollment { color: #0066cc; }
+        .type-cell.verification { color: #6610f2; }
+
+        /* Cell styling */
+        .monospace-cell {
+            font-family: monospace;
+            font-size: 0.85rem;
+        }
+
+        .path-cell {
+            max-width: 200px;
+        }
+
+        .path-wrapper {
+            word-break: break-all;
+            font-size: 0.85rem;
+        }
+
+        .metadata-cell {
+            font-size: 0.8rem;
+            line-height: 1.4;
+        }
+
+        .actions-cell {
+            text-align: center;
+        }
+
+        /* Badges */
+        .badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        .bg-success { background-color: #28a745; color: white; }
+        .bg-secondary { background-color: #6c757d; color: white; }
+
+        /* Buttons */
+        .btn {
+            padding: 4px 8px;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+        .btn-sm { padding: 2px 6px; }
+        .btn-primary { background-color: #007bff; color: white; }
+        .btn-info { background-color: #17a2b8; color: white; }
+        .btn:hover { opacity: 0.9; }
+
+        /* Section headers */
+        h3 {
+            margin-top: 30px;
+            margin-bottom: 15px;
+            color: #333;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 8px;
+        }
+
+        /* Responsive */
+        @media screen and (max-width: 1200px) {
+            .table {
+                display: block;
+                overflow-x: auto;
+                white-space: nowrap;
+            }
+        }
+    </style>
+{% endblock content %}

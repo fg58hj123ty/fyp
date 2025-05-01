@@ -1,0 +1,123 @@
+
+
+
+{% extends "layout.html" %}
+
+{% block content %}
+    <div class="content-section">
+        <div class="media">
+            <img class="rounded-circle account-img" src="{{image_file}}">
+            <div class="media-body">
+                <h2 class="account-heading">{{current_user.username}}</h2>
+                {% if current_user.alias %}
+                    <p class="text-secondary">{{current_user.alias}}</p>
+                {% endif %}
+                <p class="text-secondary">{{current_user.email}}</p>
+            </div>
+        </div>
+
+            <form method="POST" action="" novalidate enctype="multipart/form-data">
+                {{ form.hidden_tag() }}
+                <fieldset class="form-group">
+                    <legend class="border-bottom mb-4">Account Info</legend>
+
+                    <!-- User name  -->
+                    <div class="form-group">
+                        {{ form.username.label(class="form-control-label") }}
+    
+                        {% if form.username.errors %}
+                            {{ form.username(class="form-control form-control-lg is-invalid") }}
+                            <div class="invalid-feedback">
+                                {% for error in form.username.errors %}
+                                    <span>{{ error }}</span>
+                                {% endfor %}
+                            </div>
+    
+                        {% else %}
+                            {{ form.username(class="form-control form-control-lg") }}
+                        {% endif %}
+    
+                        
+                    </div>
+
+                    <!-- Email  -->
+                    <div class="form-group">
+                        {{ form.email.label(class="form-control-label") }}
+                        {% if form.email.errors %}
+                            {{ form.email(class="form-control form-control-lg is-invalid") }}
+                            <div class="invalid-feedback">
+                                {% for error in form.email.errors %}
+                                    <span>{{ error }}</span>
+                                {% endfor %}
+                            </div>
+    
+                        {% else %}
+                            {{ form.email(class="form-control form-control-lg") }}
+                        {% endif %}
+                    </div>
+
+
+                    <!-- Alias  -->
+                    <div class="form-group">
+                        {{ form.alias.label(class="form-control-label") }}
+                        {% if form.alias.errors %}
+                            {{ form.alias(class="form-control form-control-lg is-invalid") }}
+                            <div class="invalid-feedback">
+                                {% for error in form.alias.errors %}
+                                    <span>{{ error }}</span>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            {{ form.alias(class="form-control form-control-lg") }}
+                        {% endif %}
+                        <small class="text-muted">
+                            Please complete this field before using the system.
+                        </small>
+                    </div>
+
+                    <!-- Access code  -->
+                    <div class="form-group">
+                        {{ form.access_code.label(class="form-control-label") }}
+                        {% if form.access_code.errors %}
+                            {{ form.access_code(class="form-control form-control-lg is-invalid") }}
+                            <div class="invalid-feedback">
+                                {% for error in form.access_code.errors %}
+                                    <span>{{ error }}</span>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            {{ form.access_code(class="form-control form-control-lg") }}
+                        {% endif %}
+                        <small class="text-muted">
+                            Please complete this field before using the system. (3-digit number)
+                        </small>
+                    </div>
+
+                    <!-- Profile Picture  -->
+                    <div class="form-group">
+                        {{ form.picture.label() }}
+                        {{ form.picture(class="form-control-file") }}
+                        {% if form.picture.errors %}
+                            {% for error in form.picture.errors %}
+                                <span class="text-danger">{{ error }}</span></br>
+                            {% endfor %}
+                        {% endif %}
+
+                    </div>
+
+
+                    
+
+                </fieldset>
+                <div class="form-group border-top pt-3 d-flex justify-content-between align-items-center">
+                    {{ form.submit(class="btn btn-outline-info") }}
+                    <a class="btn btn-outline-info" href="{{ url_for('users.change_password') }}">
+                        Change Password
+                    </a>
+                </div>
+
+            </form>
+    </div>
+
+
+{% endblock content %}

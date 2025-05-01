@@ -1,0 +1,106 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<!-- Hero Section -->
+<div class="text-center mb-5">
+    <h1 class="display-4 mb-3">Your Voice is Your Password</h1>
+    <p class="lead mb-2">Secure access through advanced voice biometric authentication</p>
+    <p class="text-muted mb-4">Simple. Secure. Uniquely You.</p>
+    {% if not current_user.is_authenticated %}
+        <a href="{{ url_for('users.login') }}" class="btn btn-primary btn-lg">Get Started</a>
+    {% endif %}
+</div>
+
+<!-- Features Section -->
+<div class="row mb-5">
+    <div class="col-md-4 mb-4">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body">
+                <h2 class="card-title h4">Effortless Authentication</h2>
+                <p class="card-text text-muted">Just speak naturally to verify your identity. No passwords needed.</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-4">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body">
+                <h2 class="card-title h4">Advanced Security</h2>
+                <p class="card-text text-muted">Protected by state-of-the-art voice biometric technology.</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-4">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body">
+                <h2 class="card-title h4">Real-time Processing</h2>
+                <p class="card-text text-muted">Instant verification for seamless access to your account.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- How It Works Section -->
+<div class="mb-5">
+    <h2 class="h3 text-center mb-4">How It Works</h2>
+    <div class="row">
+        <div class="col-md-4 mb-4">
+            <div class="text-center">
+                <div class="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 50px; height: 50px;">
+                    <span class="h5 mb-0">1</span>
+                </div>
+                <h3 class="h5">Register</h3>
+                <p class="text-muted">Create your account in minutes</p>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="text-center">
+                <div class="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 50px; height: 50px;">
+                    <span class="h5 mb-0">2</span>
+                </div>
+                <h3 class="h5">Enroll</h3>
+                <p class="text-muted">Record your voice samples</p>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="text-center">
+                <div class="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 50px; height: 50px;">
+                    <span class="h5 mb-0">3</span>
+                </div>
+                <h3 class="h5">Verify</h3>
+                <p class="text-muted">Authenticate with your voice</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Security Features Section -->
+<div class="mb-5">
+    <h2 class="h3 text-center mb-4">Security Features</h2>
+    <div class="row">
+        <div class="col-md-6 mb-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center mb-3">
+                        <span class="text-success mr-2">✓</span>
+                        <h3 class="h5 mb-0">Anti-spoofing Technology</h3>
+                    </div>
+                    <p class="card-text text-muted">Advanced protection against voice recordings and imitation attempts</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 mb-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center mb-3">
+                        <span class="text-success mr-2">✓</span>
+                        <h3 class="h5 mb-0">Encrypted Templates</h3>
+                    </div>
+                    <p class="card-text text-muted">Your voice data is securely encrypted and stored</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+{% endblock content %}
